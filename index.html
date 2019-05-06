@@ -1,0 +1,23 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Main</title>
+  <script src="main.js"></script>
+</head>
+
+<body>
+  <div id="elm"></div>
+  <script>
+  var flags = {
+    openShiftUrl: "<openshift-url-placeholder>",
+    authenticationToken: "<authentication-token-placeholder>"
+  };
+  var app = Elm.Main.init({
+    node: document.getElementById('elm'),
+    flags: flags
+  });
+  </script>
+</body>
+</html>
+
