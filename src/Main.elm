@@ -38,6 +38,7 @@ init flag =
     ( { openShiftUrl = flag.openShiftUrl
       , authenticationToken = flag.authenticationToken
       , openShiftProjects = Loading
+      , gitHubServiceAccount = GitHubResourceLoading
       , runtime = Quarkus
       , replicas = Nothing
       , incremental = True
@@ -53,6 +54,7 @@ type alias Submarine =
     { openShiftUrl : String
     , authenticationToken : String
     , openShiftProjects : Projects
+    , gitHubServiceAccount : GitHubResource
     , runtime : Runtime
     , replicas : Maybe Int
     , incremental : Bool
@@ -73,6 +75,12 @@ type Runtime
     | SpringBoot
 
 
+type GitHubResource
+    = GitHubResourceLoading
+    | GitHubResourceSuccess String
+    | GitHubResourceError
+
+
 
 -- UPDATE
 
@@ -86,6 +94,7 @@ type Msg
     | UpdateContextDirectory String
     | GotOpenShiftProjects (Result Http.Error (List String))
     | ChangeOpenShiftProject String
+    | GotSubmarineServiceAccountYaml (Result Http.Error String)
 
 
 update : Msg -> Submarine -> ( Submarine, Cmd Msg )
@@ -132,12 +141,12 @@ update msg submarine =
             case result of
                 Ok (firstProject :: otherProjects) ->
                     ( { submarine | openShiftProjects = Success ([ firstProject ] ++ otherProjects) firstProject }
-                    , Cmd.none
+                    , getSubmarineServiceAccountYaml
                     )
 
                 Ok [] ->
                     ( { submarine | openShiftProjects = Success [] "" }
-                    , Cmd.none
+                    , getSubmarineServiceAccountYaml
                     )
 
                 Err error ->
@@ -154,6 +163,18 @@ update msg submarine =
 
                 _ ->
                     ( submarine
+                    , Cmd.none
+                    )
+
+        GotSubmarineServiceAccountYaml result ->
+            case result of
+                Ok loadedSubmarineServiceAccountYaml ->
+                    ( { submarine | gitHubServiceAccount = GitHubResourceSuccess loadedSubmarineServiceAccountYaml }
+                    , Cmd.none
+                    )
+
+                Err error ->
+                    ( { submarine | gitHubServiceAccount = GitHubResourceError }
                     , Cmd.none
                     )
 
@@ -177,6 +198,7 @@ view submarine =
         [ div [ style "width" "60%", style "float" "left" ]
             ([ text "OpenShift URL: ", text submarine.openShiftUrl, br [] [] ]
                 ++ viewOpenShiftProjects submarine
+                ++ viewGitHubResourceStatus submarine
                 ++ [ Html.fieldset []
                         ([ Html.legend [] [ text "Submarine configuration" ] ]
                             ++ viewRuntime submarine.runtime
@@ -283,6 +305,19 @@ viewOpenShiftProjects submarine =
                     ]
 
 
+viewGitHubResourceStatus : Submarine -> List (Html Msg)
+viewGitHubResourceStatus submarine =
+    case submarine.gitHubServiceAccount of
+        GitHubResourceLoading ->
+            [ text "Loading Service account YAML.", br [] [] ]
+
+        GitHubResourceSuccess _ ->
+            [ text "Service account YAML loaded.", br [] [] ]
+
+        GitHubResourceError ->
+            [ text "Error while loading Service account YAML.", br [] [] ]
+
+
 
 -- HTTP
 
@@ -303,6 +338,14 @@ getOpenShiftProjects openShiftUrl authenticationToken =
 openShiftProjectsDecoder : Decoder (List String)
 openShiftProjectsDecoder =
     field "items" (Json.Decode.list (field "metadata" (field "name" string)))
+
+
+getSubmarineServiceAccountYaml : Cmd Msg
+getSubmarineServiceAccountYaml =
+    Http.get
+        { url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/service_account.yaml"
+        , expect = Http.expectString GotSubmarineServiceAccountYaml
+        }
 
 
 
