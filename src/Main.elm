@@ -39,6 +39,9 @@ init flag =
       , authenticationToken = flag.authenticationToken
       , openShiftProjects = Loading
       , gitHubServiceAccount = GitHubResourceLoading
+      , gitHubRole = GitHubResourceLoading
+      , gitHubRoleBinding = GitHubResourceLoading
+      , gitHubOperator = GitHubResourceLoading
       , operatorDeploymentStatus = OperatorNotDeployed
       , runtime = Quarkus
       , replicas = Nothing
@@ -56,6 +59,9 @@ type alias Submarine =
     , authenticationToken : String
     , openShiftProjects : Projects
     , gitHubServiceAccount : GitHubResource
+    , gitHubRole : GitHubResource
+    , gitHubRoleBinding : GitHubResource
+    , gitHubOperator : GitHubResource
     , operatorDeploymentStatus : OperatorDeploymentStatus
     , runtime : Runtime
     , replicas : Maybe Int
@@ -104,6 +110,9 @@ type Msg
     | GotOpenShiftProjects (Result Http.Error (List String))
     | ChangeOpenShiftProject String
     | GotSubmarineServiceAccountYaml (Result Http.Error String)
+    | GotSubmarineRoleYaml (Result Http.Error String)
+    | GotSubmarineRoleBindingYaml (Result Http.Error String)
+    | GotSubmarineOperatorYaml (Result Http.Error String)
     | SubmarineServiceAccountCreated (Result Http.Error ())
     | DeploySubmarineOperator String
 
@@ -181,11 +190,47 @@ update msg submarine =
             case result of
                 Ok loadedSubmarineServiceAccountYaml ->
                     ( { submarine | gitHubServiceAccount = GitHubResourceSuccess loadedSubmarineServiceAccountYaml }
-                    , Cmd.none
+                    , getSubmarineRoleYaml
                     )
 
                 Err error ->
                     ( { submarine | gitHubServiceAccount = GitHubResourceError }
+                    , getSubmarineRoleYaml
+                    )
+
+        GotSubmarineRoleYaml result ->
+            case result of
+                Ok loadedSubmarineRoleYaml ->
+                    ( { submarine | gitHubRole = GitHubResourceSuccess loadedSubmarineRoleYaml }
+                    , getSubmarineRoleBindingYaml
+                    )
+
+                Err error ->
+                    ( { submarine | gitHubRole = GitHubResourceError }
+                    , getSubmarineRoleBindingYaml
+                    )
+
+        GotSubmarineRoleBindingYaml result ->
+            case result of
+                Ok loadedSubmarineRoleBindingYaml ->
+                    ( { submarine | gitHubRoleBinding = GitHubResourceSuccess loadedSubmarineRoleBindingYaml }
+                    , getSubmarineOperatorYaml
+                    )
+
+                Err error ->
+                    ( { submarine | gitHubRoleBinding = GitHubResourceError }
+                    , getSubmarineOperatorYaml
+                    )
+
+        GotSubmarineOperatorYaml result ->
+            case result of
+                Ok loadedSubmarineOperatorYaml ->
+                    ( { submarine | gitHubOperator = GitHubResourceSuccess loadedSubmarineOperatorYaml }
+                    , Cmd.none
+                    )
+
+                Err error ->
+                    ( { submarine | gitHubOperator = GitHubResourceError }
                     , Cmd.none
                     )
 
@@ -360,7 +405,7 @@ viewOpenShiftProjects submarine =
 
 viewGitHubResourceStatus : Submarine -> List (Html Msg)
 viewGitHubResourceStatus submarine =
-    case submarine.gitHubServiceAccount of
+    (case submarine.gitHubServiceAccount of
         GitHubResourceLoading ->
             [ text "Loading Service account YAML.", br [] [] ]
 
@@ -369,6 +414,37 @@ viewGitHubResourceStatus submarine =
 
         GitHubResourceError ->
             [ text "Error while loading Service account YAML.", br [] [] ]
+    )
+        ++ (case submarine.gitHubRole of
+                GitHubResourceLoading ->
+                    [ text "Loading Role YAML.", br [] [] ]
+
+                GitHubResourceSuccess _ ->
+                    [ text "Role YAML loaded.", br [] [] ]
+
+                GitHubResourceError ->
+                    [ text "Error while loading Role YAML.", br [] [] ]
+           )
+        ++ (case submarine.gitHubRoleBinding of
+                GitHubResourceLoading ->
+                    [ text "Loading Role binding YAML.", br [] [] ]
+
+                GitHubResourceSuccess _ ->
+                    [ text "Role binding YAML loaded.", br [] [] ]
+
+                GitHubResourceError ->
+                    [ text "Error while loading Role binding YAML.", br [] [] ]
+           )
+        ++ (case submarine.gitHubOperator of
+                GitHubResourceLoading ->
+                    [ text "Loading Operator YAML.", br [] [] ]
+
+                GitHubResourceSuccess _ ->
+                    [ text "Operator YAML loaded.", br [] [] ]
+
+                GitHubResourceError ->
+                    [ text "Error while loading Operator YAML.", br [] [] ]
+           )
 
 
 viewDeploySubmarineOperator : Submarine -> List (Html Msg)
@@ -429,6 +505,30 @@ getSubmarineServiceAccountYaml =
     Http.get
         { url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/service_account.yaml"
         , expect = Http.expectString GotSubmarineServiceAccountYaml
+        }
+
+
+getSubmarineRoleYaml : Cmd Msg
+getSubmarineRoleYaml =
+    Http.get
+        { url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/role.yaml"
+        , expect = Http.expectString GotSubmarineRoleYaml
+        }
+
+
+getSubmarineRoleBindingYaml : Cmd Msg
+getSubmarineRoleBindingYaml =
+    Http.get
+        { url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/role_binding.yaml"
+        , expect = Http.expectString GotSubmarineRoleBindingYaml
+        }
+
+
+getSubmarineOperatorYaml : Cmd Msg
+getSubmarineOperatorYaml =
+    Http.get
+        { url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/operator.yaml"
+        , expect = Http.expectString GotSubmarineOperatorYaml
         }
 
 
