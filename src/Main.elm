@@ -1,7 +1,7 @@
 module Main exposing (Msg(..), Submarine, init, main, subscriptions, update, view)
 
 import Browser
-import Html exposing (Html, br, div, input, option, pre, select, text, textarea)
+import Html exposing (Html, br, button, div, input, option, pre, select, text, textarea)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Http
@@ -39,6 +39,7 @@ init flag =
       , authenticationToken = flag.authenticationToken
       , openShiftProjects = Loading
       , gitHubServiceAccount = GitHubResourceLoading
+      , operatorDeploymentStatus = OperatorNotDeployed
       , runtime = Quarkus
       , replicas = Nothing
       , incremental = True
@@ -55,6 +56,7 @@ type alias Submarine =
     , authenticationToken : String
     , openShiftProjects : Projects
     , gitHubServiceAccount : GitHubResource
+    , operatorDeploymentStatus : OperatorDeploymentStatus
     , runtime : Runtime
     , replicas : Maybe Int
     , incremental : Bool
@@ -81,6 +83,13 @@ type GitHubResource
     | GitHubResourceError
 
 
+type OperatorDeploymentStatus
+    = OperatorNotDeployed
+    | OperatorDeploying
+    | OperatorDeployed
+    | OperatorDeploymentError String
+
+
 
 -- UPDATE
 
@@ -95,6 +104,8 @@ type Msg
     | GotOpenShiftProjects (Result Http.Error (List String))
     | ChangeOpenShiftProject String
     | GotSubmarineServiceAccountYaml (Result Http.Error String)
+    | SubmarineServiceAccountCreated (Result Http.Error ())
+    | DeploySubmarineOperator String
 
 
 update : Msg -> Submarine -> ( Submarine, Cmd Msg )
@@ -178,6 +189,47 @@ update msg submarine =
                     , Cmd.none
                     )
 
+        DeploySubmarineOperator selectedProject ->
+            case submarine.gitHubServiceAccount of
+                GitHubResourceSuccess submarineServiceAccount ->
+                    ( { submarine | operatorDeploymentStatus = OperatorDeploying }
+                    , createSubmarineServiceAccount submarine.openShiftUrl submarine.authenticationToken selectedProject submarineServiceAccount
+                    )
+
+                _ ->
+                    ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Service account from GitHub not loaded." }
+                    , Cmd.none
+                    )
+
+        SubmarineServiceAccountCreated result ->
+            case result of
+                Ok _ ->
+                    ( { submarine | operatorDeploymentStatus = OperatorDeployed }
+                    , Cmd.none
+                    )
+
+                Err error ->
+                    case error of
+                        Http.BadUrl url ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("No valid URL for service account creation: " ++ url) }
+                            , Cmd.none
+                            )
+
+                        Http.NetworkError ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Network error while creating service account." }
+                            , Cmd.none
+                            )
+
+                        Http.BadStatus statusCode ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("Bad status code while creating service account: " ++ String.fromInt statusCode) }
+                            , Cmd.none
+                            )
+
+                        _ ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Error while creating service account." }
+                            , Cmd.none
+                            )
+
 
 
 -- SUBSCRIPTIONS
@@ -199,6 +251,7 @@ view submarine =
             ([ text "OpenShift URL: ", text submarine.openShiftUrl, br [] [] ]
                 ++ viewOpenShiftProjects submarine
                 ++ viewGitHubResourceStatus submarine
+                ++ viewDeploySubmarineOperator submarine
                 ++ [ Html.fieldset []
                         ([ Html.legend [] [ text "Submarine configuration" ] ]
                             ++ viewRuntime submarine.runtime
@@ -318,6 +371,37 @@ viewGitHubResourceStatus submarine =
             [ text "Error while loading Service account YAML.", br [] [] ]
 
 
+viewDeploySubmarineOperator : Submarine -> List (Html Msg)
+viewDeploySubmarineOperator submarine =
+    case submarine.openShiftProjects of
+        Success projects selectedProject ->
+            [ button [ onClick (DeploySubmarineOperator selectedProject) ] [ text "Deploy Submarine Operator" ]
+            , br [] []
+            ]
+                ++ (case submarine.operatorDeploymentStatus of
+                        OperatorNotDeployed ->
+                            []
+
+                        OperatorDeploying ->
+                            [ text "Submarine Operator is being deployed."
+                            , br [] []
+                            ]
+
+                        OperatorDeployed ->
+                            [ text "Submarine Operator deployed."
+                            , br [] []
+                            ]
+
+                        OperatorDeploymentError deploymentError ->
+                            [ text ("Error while deploying Submarine Operator: " ++ deploymentError)
+                            , br [] []
+                            ]
+                   )
+
+        _ ->
+            []
+
+
 
 -- HTTP
 
@@ -345,6 +429,19 @@ getSubmarineServiceAccountYaml =
     Http.get
         { url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/service_account.yaml"
         , expect = Http.expectString GotSubmarineServiceAccountYaml
+        }
+
+
+createSubmarineServiceAccount : String -> String -> String -> String -> Cmd Msg
+createSubmarineServiceAccount openShiftUrl authenticationToken namespace yamlContent =
+    Http.request
+        { method = "POST"
+        , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
+        , url = openShiftUrl ++ "/api/v1/namespaces/" ++ namespace ++ "/serviceaccounts"
+        , body = Http.stringBody "application/yaml" yamlContent
+        , expect = Http.expectWhatever SubmarineServiceAccountCreated
+        , timeout = Nothing
+        , tracker = Nothing
         }
 
 
