@@ -113,7 +113,10 @@ type Msg
     | GotSubmarineRoleYaml (Result Http.Error String)
     | GotSubmarineRoleBindingYaml (Result Http.Error String)
     | GotSubmarineOperatorYaml (Result Http.Error String)
-    | SubmarineServiceAccountCreated (Result Http.Error ())
+    | SubmarineServiceAccountCreated String (Result Http.Error ())
+    | SubmarineRoleCreated String (Result Http.Error ())
+    | SubmarineRoleBindingCreated String (Result Http.Error ())
+    | SubmarineOperatorCreated String (Result Http.Error ())
     | DeploySubmarineOperator String
 
 
@@ -246,12 +249,19 @@ update msg submarine =
                     , Cmd.none
                     )
 
-        SubmarineServiceAccountCreated result ->
+        SubmarineServiceAccountCreated selectedProject result ->
             case result of
                 Ok _ ->
-                    ( { submarine | operatorDeploymentStatus = OperatorDeployed }
-                    , Cmd.none
-                    )
+                    case submarine.gitHubRole of
+                        GitHubResourceSuccess submarineRole ->
+                            ( submarine
+                            , createSubmarineRole submarine.openShiftUrl submarine.authenticationToken selectedProject submarineRole
+                            )
+
+                        _ ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Role from GitHub not loaded." }
+                            , Cmd.none
+                            )
 
                 Err error ->
                     case error of
@@ -272,6 +282,107 @@ update msg submarine =
 
                         _ ->
                             ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Error while creating service account." }
+                            , Cmd.none
+                            )
+
+        SubmarineRoleCreated selectedProject result ->
+            case result of
+                Ok _ ->
+                    case submarine.gitHubRoleBinding of
+                        GitHubResourceSuccess submarineRoleBinding ->
+                            ( submarine
+                            , createSubmarineRoleBinding submarine.openShiftUrl submarine.authenticationToken selectedProject submarineRoleBinding
+                            )
+
+                        _ ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Role binding from GitHub not loaded." }
+                            , Cmd.none
+                            )
+
+                Err error ->
+                    case error of
+                        Http.BadUrl url ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("No valid URL for role creation: " ++ url) }
+                            , Cmd.none
+                            )
+
+                        Http.NetworkError ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Network error while creating role." }
+                            , Cmd.none
+                            )
+
+                        Http.BadStatus statusCode ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("Bad status code while creating role: " ++ String.fromInt statusCode) }
+                            , Cmd.none
+                            )
+
+                        _ ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Error while creating role." }
+                            , Cmd.none
+                            )
+
+        SubmarineRoleBindingCreated selectedProject result ->
+            case result of
+                Ok _ ->
+                    case submarine.gitHubOperator of
+                        GitHubResourceSuccess submarineOperator ->
+                            ( submarine
+                            , createSubmarineDeployment submarine.openShiftUrl submarine.authenticationToken selectedProject submarineOperator
+                            )
+
+                        _ ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Role binding from GitHub not loaded." }
+                            , Cmd.none
+                            )
+
+                Err error ->
+                    case error of
+                        Http.BadUrl url ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("No valid URL for role binding creation: " ++ url) }
+                            , Cmd.none
+                            )
+
+                        Http.NetworkError ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Network error while creating role binding." }
+                            , Cmd.none
+                            )
+
+                        Http.BadStatus statusCode ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("Bad status code while creating role binding: " ++ String.fromInt statusCode) }
+                            , Cmd.none
+                            )
+
+                        _ ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Error while creating role binding." }
+                            , Cmd.none
+                            )
+
+        SubmarineOperatorCreated selectedProject result ->
+            case result of
+                Ok _ ->
+                    ( { submarine | operatorDeploymentStatus = OperatorDeployed }
+                    , Cmd.none
+                    )
+
+                Err error ->
+                    case error of
+                        Http.BadUrl url ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("No valid URL for operator creation: " ++ url) }
+                            , Cmd.none
+                            )
+
+                        Http.NetworkError ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Network error while creating operator." }
+                            , Cmd.none
+                            )
+
+                        Http.BadStatus statusCode ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("Bad status code while creating operator: " ++ String.fromInt statusCode) }
+                            , Cmd.none
+                            )
+
+                        _ ->
+                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Error while creating operator." }
                             , Cmd.none
                             )
 
@@ -539,7 +650,46 @@ createSubmarineServiceAccount openShiftUrl authenticationToken namespace yamlCon
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
         , url = openShiftUrl ++ "/api/v1/namespaces/" ++ namespace ++ "/serviceaccounts"
         , body = Http.stringBody "application/yaml" yamlContent
-        , expect = Http.expectWhatever SubmarineServiceAccountCreated
+        , expect = Http.expectWhatever (SubmarineServiceAccountCreated namespace)
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+createSubmarineRole : String -> String -> String -> String -> Cmd Msg
+createSubmarineRole openShiftUrl authenticationToken namespace yamlContent =
+    Http.request
+        { method = "POST"
+        , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
+        , url = openShiftUrl ++ "/apis/rbac.authorization.k8s.io/v1/namespaces/" ++ namespace ++ "/roles"
+        , body = Http.stringBody "application/yaml" yamlContent
+        , expect = Http.expectWhatever (SubmarineRoleCreated namespace)
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+createSubmarineRoleBinding : String -> String -> String -> String -> Cmd Msg
+createSubmarineRoleBinding openShiftUrl authenticationToken namespace yamlContent =
+    Http.request
+        { method = "POST"
+        , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
+        , url = openShiftUrl ++ "/apis/rbac.authorization.k8s.io/v1/namespaces/" ++ namespace ++ "/rolebindings"
+        , body = Http.stringBody "application/yaml" yamlContent
+        , expect = Http.expectWhatever (SubmarineRoleBindingCreated namespace)
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+createSubmarineDeployment : String -> String -> String -> String -> Cmd Msg
+createSubmarineDeployment openShiftUrl authenticationToken namespace yamlContent =
+    Http.request
+        { method = "POST"
+        , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
+        , url = openShiftUrl ++ "/apis/apps/v1/namespaces/" ++ namespace ++ "/deployments"
+        , body = Http.stringBody "application/yaml" yamlContent
+        , expect = Http.expectWhatever (SubmarineOperatorCreated namespace)
         , timeout = Nothing
         , tracker = Nothing
         }
