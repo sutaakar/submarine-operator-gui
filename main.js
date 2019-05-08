@@ -4522,7 +4522,9 @@ function _Browser_load(url)
 		}
 	}));
 }
+var author$project$Main$GitHubResourceLoading = {$: 'GitHubResourceLoading'};
 var author$project$Main$Loading = {$: 'Loading'};
+var author$project$Main$OperatorNotDeployed = {$: 'OperatorNotDeployed'};
 var author$project$Main$Quarkus = {$: 'Quarkus'};
 var author$project$Main$GotOpenShiftProjects = function (a) {
 	return {$: 'GotOpenShiftProjects', a: a};
@@ -5913,7 +5915,7 @@ var author$project$Main$getOpenShiftProjects = F2(
 	});
 var author$project$Main$init = function (flag) {
 	return _Utils_Tuple2(
-		{authenticationToken: flag.authenticationToken, contextDir: '', gitUrl: '', incremental: true, openShiftProjects: author$project$Main$Loading, openShiftUrl: flag.openShiftUrl, reference: '', replicas: elm$core$Maybe$Nothing, runtime: author$project$Main$Quarkus},
+		{authenticationToken: flag.authenticationToken, contextDir: '', gitHubOperator: author$project$Main$GitHubResourceLoading, gitHubRole: author$project$Main$GitHubResourceLoading, gitHubRoleBinding: author$project$Main$GitHubResourceLoading, gitHubServiceAccount: author$project$Main$GitHubResourceLoading, gitUrl: '', incremental: true, openShiftProjects: author$project$Main$Loading, openShiftUrl: flag.openShiftUrl, operatorDeploymentStatus: author$project$Main$OperatorNotDeployed, reference: '', replicas: elm$core$Maybe$Nothing, runtime: author$project$Main$Quarkus},
 		A2(author$project$Main$getOpenShiftProjects, flag.openShiftUrl, flag.authenticationToken));
 };
 var elm$core$Platform$Sub$batch = _Platform_batch;
@@ -5924,9 +5926,248 @@ var author$project$Main$subscriptions = function (submarine) {
 var author$project$Main$Error = function (a) {
 	return {$: 'Error', a: a};
 };
+var author$project$Main$GitHubResourceError = {$: 'GitHubResourceError'};
+var author$project$Main$GitHubResourceSuccess = function (a) {
+	return {$: 'GitHubResourceSuccess', a: a};
+};
+var author$project$Main$OperatorDeployed = {$: 'OperatorDeployed'};
+var author$project$Main$OperatorDeploying = {$: 'OperatorDeploying'};
+var author$project$Main$OperatorDeploymentError = function (a) {
+	return {$: 'OperatorDeploymentError', a: a};
+};
 var author$project$Main$Success = F2(
 	function (a, b) {
 		return {$: 'Success', a: a, b: b};
+	});
+var author$project$Main$SubmarineOperatorCreated = F2(
+	function (a, b) {
+		return {$: 'SubmarineOperatorCreated', a: a, b: b};
+	});
+var elm$http$Http$expectBytesResponse = F2(
+	function (toMsg, toResult) {
+		return A3(
+			_Http_expect,
+			'arraybuffer',
+			_Http_toDataView,
+			A2(elm$core$Basics$composeR, toResult, toMsg));
+	});
+var elm$http$Http$expectWhatever = function (toMsg) {
+	return A2(
+		elm$http$Http$expectBytesResponse,
+		toMsg,
+		elm$http$Http$resolve(
+			function (_n0) {
+				return elm$core$Result$Ok(_Utils_Tuple0);
+			}));
+};
+var elm$http$Http$stringBody = _Http_pair;
+var author$project$Main$createSubmarineCustomResource = F4(
+	function (openShiftUrl, authenticationToken, namespace, yamlContent) {
+		return elm$http$Http$request(
+			{
+				body: A2(elm$http$Http$stringBody, 'application/yaml', yamlContent),
+				expect: elm$http$Http$expectWhatever(
+					author$project$Main$SubmarineOperatorCreated(namespace)),
+				headers: _List_fromArray(
+					[
+						A2(elm$http$Http$header, 'Authorization', 'Bearer ' + authenticationToken)
+					]),
+				method: 'POST',
+				timeout: elm$core$Maybe$Nothing,
+				tracker: elm$core$Maybe$Nothing,
+				url: openShiftUrl + ('/apis/app.kiegroup.org/v1alpha1/namespaces/' + (namespace + '/subapps'))
+			});
+	});
+var author$project$Main$createSubmarineDeployment = F4(
+	function (openShiftUrl, authenticationToken, namespace, yamlContent) {
+		return elm$http$Http$request(
+			{
+				body: A2(elm$http$Http$stringBody, 'application/yaml', yamlContent),
+				expect: elm$http$Http$expectWhatever(
+					author$project$Main$SubmarineOperatorCreated(namespace)),
+				headers: _List_fromArray(
+					[
+						A2(elm$http$Http$header, 'Authorization', 'Bearer ' + authenticationToken)
+					]),
+				method: 'POST',
+				timeout: elm$core$Maybe$Nothing,
+				tracker: elm$core$Maybe$Nothing,
+				url: openShiftUrl + ('/apis/apps/v1/namespaces/' + (namespace + '/deployments'))
+			});
+	});
+var author$project$Main$SubmarineRoleCreated = F2(
+	function (a, b) {
+		return {$: 'SubmarineRoleCreated', a: a, b: b};
+	});
+var author$project$Main$createSubmarineRole = F4(
+	function (openShiftUrl, authenticationToken, namespace, yamlContent) {
+		return elm$http$Http$request(
+			{
+				body: A2(elm$http$Http$stringBody, 'application/yaml', yamlContent),
+				expect: elm$http$Http$expectWhatever(
+					author$project$Main$SubmarineRoleCreated(namespace)),
+				headers: _List_fromArray(
+					[
+						A2(elm$http$Http$header, 'Authorization', 'Bearer ' + authenticationToken)
+					]),
+				method: 'POST',
+				timeout: elm$core$Maybe$Nothing,
+				tracker: elm$core$Maybe$Nothing,
+				url: openShiftUrl + ('/apis/rbac.authorization.k8s.io/v1/namespaces/' + (namespace + '/roles'))
+			});
+	});
+var author$project$Main$SubmarineRoleBindingCreated = F2(
+	function (a, b) {
+		return {$: 'SubmarineRoleBindingCreated', a: a, b: b};
+	});
+var author$project$Main$createSubmarineRoleBinding = F4(
+	function (openShiftUrl, authenticationToken, namespace, yamlContent) {
+		return elm$http$Http$request(
+			{
+				body: A2(elm$http$Http$stringBody, 'application/yaml', yamlContent),
+				expect: elm$http$Http$expectWhatever(
+					author$project$Main$SubmarineRoleBindingCreated(namespace)),
+				headers: _List_fromArray(
+					[
+						A2(elm$http$Http$header, 'Authorization', 'Bearer ' + authenticationToken)
+					]),
+				method: 'POST',
+				timeout: elm$core$Maybe$Nothing,
+				tracker: elm$core$Maybe$Nothing,
+				url: openShiftUrl + ('/apis/rbac.authorization.k8s.io/v1/namespaces/' + (namespace + '/rolebindings'))
+			});
+	});
+var author$project$Main$SubmarineServiceAccountCreated = F2(
+	function (a, b) {
+		return {$: 'SubmarineServiceAccountCreated', a: a, b: b};
+	});
+var author$project$Main$createSubmarineServiceAccount = F4(
+	function (openShiftUrl, authenticationToken, namespace, yamlContent) {
+		return elm$http$Http$request(
+			{
+				body: A2(elm$http$Http$stringBody, 'application/yaml', yamlContent),
+				expect: elm$http$Http$expectWhatever(
+					author$project$Main$SubmarineServiceAccountCreated(namespace)),
+				headers: _List_fromArray(
+					[
+						A2(elm$http$Http$header, 'Authorization', 'Bearer ' + authenticationToken)
+					]),
+				method: 'POST',
+				timeout: elm$core$Maybe$Nothing,
+				tracker: elm$core$Maybe$Nothing,
+				url: openShiftUrl + ('/api/v1/namespaces/' + (namespace + '/serviceaccounts'))
+			});
+	});
+var elm$core$Bitwise$and = _Bitwise_and;
+var elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
+var elm$core$String$repeatHelp = F3(
+	function (n, chunk, result) {
+		return (n <= 0) ? result : A3(
+			elm$core$String$repeatHelp,
+			n >> 1,
+			_Utils_ap(chunk, chunk),
+			(!(n & 1)) ? result : _Utils_ap(result, chunk));
+	});
+var elm$core$String$repeat = F2(
+	function (n, chunk) {
+		return A3(elm$core$String$repeatHelp, n, chunk, '');
+	});
+var author$project$YamlUtils$getNameAndValueWithIntendation = F3(
+	function (name, value, intendation) {
+		return A2(elm$core$String$repeat, intendation, '  ') + (name + (': ' + (value + '\n')));
+	});
+var author$project$YamlUtils$getNameWithIntendation = F2(
+	function (name, intendation) {
+		return A2(elm$core$String$repeat, intendation, '  ') + (name + ':\n');
+	});
+var elm$core$String$length = _String_length;
+var author$project$Main$getSubAppAsYaml = function (submarine) {
+	return _Utils_ap(
+		A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'apiVersion', 'app.kiegroup.org/v1alpha1', 0),
+		_Utils_ap(
+			A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'kind', 'SubApp', 0),
+			_Utils_ap(
+				A2(author$project$YamlUtils$getNameWithIntendation, 'metadata', 0),
+				_Utils_ap(
+					A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'name', 'sub-cr', 1),
+					_Utils_ap(
+						A2(author$project$YamlUtils$getNameWithIntendation, 'spec', 0),
+						_Utils_ap(
+							function () {
+								var _n0 = submarine.runtime;
+								if (_n0.$ === 'Quarkus') {
+									return A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'runtime', 'quarkus', 1);
+								} else {
+									return A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'runtime', 'springboot', 1);
+								}
+							}(),
+							_Utils_ap(
+								function () {
+									var _n1 = submarine.replicas;
+									if (_n1.$ === 'Just') {
+										var replicas = _n1.a;
+										return A3(
+											author$project$YamlUtils$getNameAndValueWithIntendation,
+											'replicas',
+											elm$core$String$fromInt(replicas),
+											1);
+									} else {
+										return '';
+									}
+								}(),
+								_Utils_ap(
+									A2(author$project$YamlUtils$getNameWithIntendation, 'build', 1),
+									_Utils_ap(
+										submarine.incremental ? A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'incremental', 'true', 2) : A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'incremental', 'false', 2),
+										_Utils_ap(
+											A2(author$project$YamlUtils$getNameWithIntendation, 'gitSource', 2),
+											_Utils_ap(
+												A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'uri', submarine.gitUrl, 3),
+												_Utils_ap(
+													(elm$core$String$length(submarine.reference) > 0) ? A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'reference', submarine.reference, 3) : '',
+													(elm$core$String$length(submarine.contextDir) > 0) ? A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'contextDir', submarine.contextDir, 3) : ''))))))))))));
+};
+var author$project$Main$GotSubmarineOperatorYaml = function (a) {
+	return {$: 'GotSubmarineOperatorYaml', a: a};
+};
+var elm$http$Http$expectString = function (toMsg) {
+	return A2(
+		elm$http$Http$expectStringResponse,
+		toMsg,
+		elm$http$Http$resolve(elm$core$Result$Ok));
+};
+var elm$http$Http$get = function (r) {
+	return elm$http$Http$request(
+		{body: elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: elm$core$Maybe$Nothing, tracker: elm$core$Maybe$Nothing, url: r.url});
+};
+var author$project$Main$getSubmarineOperatorYaml = elm$http$Http$get(
+	{
+		expect: elm$http$Http$expectString(author$project$Main$GotSubmarineOperatorYaml),
+		url: 'https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/operator.yaml'
+	});
+var author$project$Main$GotSubmarineRoleBindingYaml = function (a) {
+	return {$: 'GotSubmarineRoleBindingYaml', a: a};
+};
+var author$project$Main$getSubmarineRoleBindingYaml = elm$http$Http$get(
+	{
+		expect: elm$http$Http$expectString(author$project$Main$GotSubmarineRoleBindingYaml),
+		url: 'https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/role_binding.yaml'
+	});
+var author$project$Main$GotSubmarineRoleYaml = function (a) {
+	return {$: 'GotSubmarineRoleYaml', a: a};
+};
+var author$project$Main$getSubmarineRoleYaml = elm$http$Http$get(
+	{
+		expect: elm$http$Http$expectString(author$project$Main$GotSubmarineRoleYaml),
+		url: 'https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/role.yaml'
+	});
+var author$project$Main$GotSubmarineServiceAccountYaml = function (a) {
+	return {$: 'GotSubmarineServiceAccountYaml', a: a};
+};
+var author$project$Main$getSubmarineServiceAccountYaml = elm$http$Http$get(
+	{
+		expect: elm$http$Http$expectString(author$project$Main$GotSubmarineServiceAccountYaml),
+		url: 'https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/service_account.yaml'
 	});
 var elm$core$Basics$not = _Basics_not;
 var elm$core$Platform$Cmd$batch = _Platform_batch;
@@ -6007,7 +6248,7 @@ var author$project$Main$update = F2(
 											otherProjects),
 										firstProject)
 								}),
-							elm$core$Platform$Cmd$none);
+							author$project$Main$getSubmarineServiceAccountYaml);
 					} else {
 						return _Utils_Tuple2(
 							_Utils_update(
@@ -6015,7 +6256,7 @@ var author$project$Main$update = F2(
 								{
 									openShiftProjects: A2(author$project$Main$Success, _List_Nil, '')
 								}),
-							elm$core$Platform$Cmd$none);
+							author$project$Main$getSubmarineServiceAccountYaml);
 					}
 				} else {
 					var error = result.a;
@@ -6027,7 +6268,7 @@ var author$project$Main$update = F2(
 							}),
 						elm$core$Platform$Cmd$none);
 				}
-			default:
+			case 'ChangeOpenShiftProject':
 				var newOpenShiftProject = msg.a;
 				var _n4 = submarine.openShiftProjects;
 				if (_n4.$ === 'Success') {
@@ -6042,6 +6283,337 @@ var author$project$Main$update = F2(
 				} else {
 					return _Utils_Tuple2(submarine, elm$core$Platform$Cmd$none);
 				}
+			case 'GotSubmarineServiceAccountYaml':
+				var result = msg.a;
+				if (result.$ === 'Ok') {
+					var loadedSubmarineServiceAccountYaml = result.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							submarine,
+							{
+								gitHubServiceAccount: author$project$Main$GitHubResourceSuccess(loadedSubmarineServiceAccountYaml)
+							}),
+						author$project$Main$getSubmarineRoleYaml);
+				} else {
+					var error = result.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							submarine,
+							{gitHubServiceAccount: author$project$Main$GitHubResourceError}),
+						author$project$Main$getSubmarineRoleYaml);
+				}
+			case 'GotSubmarineRoleYaml':
+				var result = msg.a;
+				if (result.$ === 'Ok') {
+					var loadedSubmarineRoleYaml = result.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							submarine,
+							{
+								gitHubRole: author$project$Main$GitHubResourceSuccess(loadedSubmarineRoleYaml)
+							}),
+						author$project$Main$getSubmarineRoleBindingYaml);
+				} else {
+					var error = result.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							submarine,
+							{gitHubRole: author$project$Main$GitHubResourceError}),
+						author$project$Main$getSubmarineRoleBindingYaml);
+				}
+			case 'GotSubmarineRoleBindingYaml':
+				var result = msg.a;
+				if (result.$ === 'Ok') {
+					var loadedSubmarineRoleBindingYaml = result.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							submarine,
+							{
+								gitHubRoleBinding: author$project$Main$GitHubResourceSuccess(loadedSubmarineRoleBindingYaml)
+							}),
+						author$project$Main$getSubmarineOperatorYaml);
+				} else {
+					var error = result.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							submarine,
+							{gitHubRoleBinding: author$project$Main$GitHubResourceError}),
+						author$project$Main$getSubmarineOperatorYaml);
+				}
+			case 'GotSubmarineOperatorYaml':
+				var result = msg.a;
+				if (result.$ === 'Ok') {
+					var loadedSubmarineOperatorYaml = result.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							submarine,
+							{
+								gitHubOperator: author$project$Main$GitHubResourceSuccess(loadedSubmarineOperatorYaml)
+							}),
+						elm$core$Platform$Cmd$none);
+				} else {
+					var error = result.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							submarine,
+							{gitHubOperator: author$project$Main$GitHubResourceError}),
+						elm$core$Platform$Cmd$none);
+				}
+			case 'DeploySubmarineOperator':
+				var selectedProject = msg.a;
+				var _n9 = submarine.gitHubServiceAccount;
+				if (_n9.$ === 'GitHubResourceSuccess') {
+					var submarineServiceAccount = _n9.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							submarine,
+							{operatorDeploymentStatus: author$project$Main$OperatorDeploying}),
+						A4(author$project$Main$createSubmarineServiceAccount, submarine.openShiftUrl, submarine.authenticationToken, selectedProject, submarineServiceAccount));
+				} else {
+					return _Utils_Tuple2(
+						_Utils_update(
+							submarine,
+							{
+								operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('Service account from GitHub not loaded.')
+							}),
+						elm$core$Platform$Cmd$none);
+				}
+			case 'SubmarineServiceAccountCreated':
+				var selectedProject = msg.a;
+				var result = msg.b;
+				if (result.$ === 'Ok') {
+					var _n11 = submarine.gitHubRole;
+					if (_n11.$ === 'GitHubResourceSuccess') {
+						var submarineRole = _n11.a;
+						return _Utils_Tuple2(
+							submarine,
+							A4(author$project$Main$createSubmarineRole, submarine.openShiftUrl, submarine.authenticationToken, selectedProject, submarineRole));
+					} else {
+						return _Utils_Tuple2(
+							_Utils_update(
+								submarine,
+								{
+									operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('Role from GitHub not loaded.')
+								}),
+							elm$core$Platform$Cmd$none);
+					}
+				} else {
+					var error = result.a;
+					switch (error.$) {
+						case 'BadUrl':
+							var url = error.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('No valid URL for service account creation: ' + url)
+									}),
+								elm$core$Platform$Cmd$none);
+						case 'NetworkError':
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('Network error while creating service account.')
+									}),
+								elm$core$Platform$Cmd$none);
+						case 'BadStatus':
+							var statusCode = error.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError(
+											'Bad status code while creating service account: ' + elm$core$String$fromInt(statusCode))
+									}),
+								elm$core$Platform$Cmd$none);
+						default:
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('Error while creating service account.')
+									}),
+								elm$core$Platform$Cmd$none);
+					}
+				}
+			case 'SubmarineRoleCreated':
+				var selectedProject = msg.a;
+				var result = msg.b;
+				if (result.$ === 'Ok') {
+					var _n14 = submarine.gitHubRoleBinding;
+					if (_n14.$ === 'GitHubResourceSuccess') {
+						var submarineRoleBinding = _n14.a;
+						return _Utils_Tuple2(
+							submarine,
+							A4(author$project$Main$createSubmarineRoleBinding, submarine.openShiftUrl, submarine.authenticationToken, selectedProject, submarineRoleBinding));
+					} else {
+						return _Utils_Tuple2(
+							_Utils_update(
+								submarine,
+								{
+									operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('Role binding from GitHub not loaded.')
+								}),
+							elm$core$Platform$Cmd$none);
+					}
+				} else {
+					var error = result.a;
+					switch (error.$) {
+						case 'BadUrl':
+							var url = error.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('No valid URL for role creation: ' + url)
+									}),
+								elm$core$Platform$Cmd$none);
+						case 'NetworkError':
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('Network error while creating role.')
+									}),
+								elm$core$Platform$Cmd$none);
+						case 'BadStatus':
+							var statusCode = error.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError(
+											'Bad status code while creating role: ' + elm$core$String$fromInt(statusCode))
+									}),
+								elm$core$Platform$Cmd$none);
+						default:
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('Error while creating role.')
+									}),
+								elm$core$Platform$Cmd$none);
+					}
+				}
+			case 'SubmarineRoleBindingCreated':
+				var selectedProject = msg.a;
+				var result = msg.b;
+				if (result.$ === 'Ok') {
+					var _n17 = submarine.gitHubOperator;
+					if (_n17.$ === 'GitHubResourceSuccess') {
+						var submarineOperator = _n17.a;
+						return _Utils_Tuple2(
+							submarine,
+							A4(author$project$Main$createSubmarineDeployment, submarine.openShiftUrl, submarine.authenticationToken, selectedProject, submarineOperator));
+					} else {
+						return _Utils_Tuple2(
+							_Utils_update(
+								submarine,
+								{
+									operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('Role binding from GitHub not loaded.')
+								}),
+							elm$core$Platform$Cmd$none);
+					}
+				} else {
+					var error = result.a;
+					switch (error.$) {
+						case 'BadUrl':
+							var url = error.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('No valid URL for role binding creation: ' + url)
+									}),
+								elm$core$Platform$Cmd$none);
+						case 'NetworkError':
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('Network error while creating role binding.')
+									}),
+								elm$core$Platform$Cmd$none);
+						case 'BadStatus':
+							var statusCode = error.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError(
+											'Bad status code while creating role binding: ' + elm$core$String$fromInt(statusCode))
+									}),
+								elm$core$Platform$Cmd$none);
+						default:
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('Error while creating role binding.')
+									}),
+								elm$core$Platform$Cmd$none);
+					}
+				}
+			case 'SubmarineOperatorCreated':
+				var selectedProject = msg.a;
+				var result = msg.b;
+				if (result.$ === 'Ok') {
+					return _Utils_Tuple2(
+						_Utils_update(
+							submarine,
+							{operatorDeploymentStatus: author$project$Main$OperatorDeployed}),
+						elm$core$Platform$Cmd$none);
+				} else {
+					var error = result.a;
+					switch (error.$) {
+						case 'BadUrl':
+							var url = error.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('No valid URL for operator creation: ' + url)
+									}),
+								elm$core$Platform$Cmd$none);
+						case 'NetworkError':
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('Network error while creating operator.')
+									}),
+								elm$core$Platform$Cmd$none);
+						case 'BadStatus':
+							var statusCode = error.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError(
+											'Bad status code while creating operator: ' + elm$core$String$fromInt(statusCode))
+									}),
+								elm$core$Platform$Cmd$none);
+						default:
+							return _Utils_Tuple2(
+								_Utils_update(
+									submarine,
+									{
+										operatorDeploymentStatus: author$project$Main$OperatorDeploymentError('Error while creating operator.')
+									}),
+								elm$core$Platform$Cmd$none);
+					}
+				}
+			default:
+				var selectedProject = msg.a;
+				return _Utils_Tuple2(
+					submarine,
+					A4(
+						author$project$Main$createSubmarineCustomResource,
+						submarine.openShiftUrl,
+						submarine.authenticationToken,
+						selectedProject,
+						author$project$Main$getSubAppAsYaml(submarine)));
 		}
 	});
 var author$project$Main$SelectIncremental = {$: 'SelectIncremental'};
@@ -6054,74 +6626,219 @@ var author$project$Main$UpdateGitUrl = function (a) {
 var author$project$Main$UpdateReference = function (a) {
 	return {$: 'UpdateReference', a: a};
 };
-var elm$core$Bitwise$and = _Bitwise_and;
-var elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
-var elm$core$String$repeatHelp = F3(
-	function (n, chunk, result) {
-		return (n <= 0) ? result : A3(
-			elm$core$String$repeatHelp,
-			n >> 1,
-			_Utils_ap(chunk, chunk),
-			(!(n & 1)) ? result : _Utils_ap(result, chunk));
+var author$project$Main$DeploySubmarineCustomResource = function (a) {
+	return {$: 'DeploySubmarineCustomResource', a: a};
+};
+var elm$json$Json$Decode$map = _Json_map1;
+var elm$json$Json$Decode$map2 = _Json_map2;
+var elm$json$Json$Decode$succeed = _Json_succeed;
+var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
+	switch (handler.$) {
+		case 'Normal':
+			return 0;
+		case 'MayStopPropagation':
+			return 1;
+		case 'MayPreventDefault':
+			return 2;
+		default:
+			return 3;
+	}
+};
+var elm$html$Html$br = _VirtualDom_node('br');
+var elm$html$Html$button = _VirtualDom_node('button');
+var elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
+var elm$html$Html$text = elm$virtual_dom$VirtualDom$text;
+var elm$virtual_dom$VirtualDom$Normal = function (a) {
+	return {$: 'Normal', a: a};
+};
+var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
+var elm$html$Html$Events$on = F2(
+	function (event, decoder) {
+		return A2(
+			elm$virtual_dom$VirtualDom$on,
+			event,
+			elm$virtual_dom$VirtualDom$Normal(decoder));
 	});
-var elm$core$String$repeat = F2(
-	function (n, chunk) {
-		return A3(elm$core$String$repeatHelp, n, chunk, '');
-	});
-var author$project$YamlUtils$getNameAndValueWithIntendation = F3(
-	function (name, value, intendation) {
-		return A2(elm$core$String$repeat, intendation, '  ') + (name + (': ' + (value + '\n')));
-	});
-var author$project$YamlUtils$getNameWithIntendation = F2(
-	function (name, intendation) {
-		return A2(elm$core$String$repeat, intendation, '  ') + (name + ':\n');
-	});
-var elm$core$String$length = _String_length;
-var author$project$Main$getSubAppAsYaml = function (submarine) {
+var elm$html$Html$Events$onClick = function (msg) {
+	return A2(
+		elm$html$Html$Events$on,
+		'click',
+		elm$json$Json$Decode$succeed(msg));
+};
+var author$project$Main$viewDeploySubmarineCustomResource = function (submarine) {
+	var _n0 = submarine.openShiftProjects;
+	if (_n0.$ === 'Success') {
+		var projects = _n0.a;
+		var selectedProject = _n0.b;
+		return _List_fromArray(
+			[
+				A2(
+				elm$html$Html$button,
+				_List_fromArray(
+					[
+						elm$html$Html$Events$onClick(
+						author$project$Main$DeploySubmarineCustomResource(selectedProject))
+					]),
+				_List_fromArray(
+					[
+						elm$html$Html$text('Deploy Submarine Custom resource')
+					])),
+				A2(elm$html$Html$br, _List_Nil, _List_Nil)
+			]);
+	} else {
+		return _List_Nil;
+	}
+};
+var author$project$Main$DeploySubmarineOperator = function (a) {
+	return {$: 'DeploySubmarineOperator', a: a};
+};
+var author$project$Main$viewDeploySubmarineOperator = function (submarine) {
+	var _n0 = submarine.openShiftProjects;
+	if (_n0.$ === 'Success') {
+		var projects = _n0.a;
+		var selectedProject = _n0.b;
+		return _Utils_ap(
+			_List_fromArray(
+				[
+					A2(
+					elm$html$Html$button,
+					_List_fromArray(
+						[
+							elm$html$Html$Events$onClick(
+							author$project$Main$DeploySubmarineOperator(selectedProject))
+						]),
+					_List_fromArray(
+						[
+							elm$html$Html$text('Deploy Submarine Operator')
+						])),
+					A2(elm$html$Html$br, _List_Nil, _List_Nil)
+				]),
+			function () {
+				var _n1 = submarine.operatorDeploymentStatus;
+				switch (_n1.$) {
+					case 'OperatorNotDeployed':
+						return _List_Nil;
+					case 'OperatorDeploying':
+						return _List_fromArray(
+							[
+								elm$html$Html$text('Submarine Operator is being deployed.'),
+								A2(elm$html$Html$br, _List_Nil, _List_Nil)
+							]);
+					case 'OperatorDeployed':
+						return _List_fromArray(
+							[
+								elm$html$Html$text('Submarine Operator deployed.'),
+								A2(elm$html$Html$br, _List_Nil, _List_Nil)
+							]);
+					default:
+						var deploymentError = _n1.a;
+						return _List_fromArray(
+							[
+								elm$html$Html$text('Error while deploying Submarine Operator: ' + deploymentError),
+								A2(elm$html$Html$br, _List_Nil, _List_Nil)
+							]);
+				}
+			}());
+	} else {
+		return _List_Nil;
+	}
+};
+var author$project$Main$viewGitHubResourceStatus = function (submarine) {
 	return _Utils_ap(
-		A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'apiVersion', 'app.kiegroup.org/v1alpha1', 0),
+		function () {
+			var _n0 = submarine.gitHubServiceAccount;
+			switch (_n0.$) {
+				case 'GitHubResourceLoading':
+					return _List_fromArray(
+						[
+							elm$html$Html$text('Loading Service account YAML.'),
+							A2(elm$html$Html$br, _List_Nil, _List_Nil)
+						]);
+				case 'GitHubResourceSuccess':
+					return _List_fromArray(
+						[
+							elm$html$Html$text('Service account YAML loaded.'),
+							A2(elm$html$Html$br, _List_Nil, _List_Nil)
+						]);
+				default:
+					return _List_fromArray(
+						[
+							elm$html$Html$text('Error while loading Service account YAML.'),
+							A2(elm$html$Html$br, _List_Nil, _List_Nil)
+						]);
+			}
+		}(),
 		_Utils_ap(
-			A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'kind', 'SubApp', 0),
+			function () {
+				var _n1 = submarine.gitHubRole;
+				switch (_n1.$) {
+					case 'GitHubResourceLoading':
+						return _List_fromArray(
+							[
+								elm$html$Html$text('Loading Role YAML.'),
+								A2(elm$html$Html$br, _List_Nil, _List_Nil)
+							]);
+					case 'GitHubResourceSuccess':
+						return _List_fromArray(
+							[
+								elm$html$Html$text('Role YAML loaded.'),
+								A2(elm$html$Html$br, _List_Nil, _List_Nil)
+							]);
+					default:
+						return _List_fromArray(
+							[
+								elm$html$Html$text('Error while loading Role YAML.'),
+								A2(elm$html$Html$br, _List_Nil, _List_Nil)
+							]);
+				}
+			}(),
 			_Utils_ap(
-				A2(author$project$YamlUtils$getNameWithIntendation, 'metadata', 0),
-				_Utils_ap(
-					A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'name', 'sub-cr', 1),
-					_Utils_ap(
-						A2(author$project$YamlUtils$getNameWithIntendation, 'spec', 0),
-						_Utils_ap(
-							function () {
-								var _n0 = submarine.runtime;
-								if (_n0.$ === 'Quarkus') {
-									return A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'runtime', 'quarkus', 1);
-								} else {
-									return A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'runtime', 'springboot', 1);
-								}
-							}(),
-							_Utils_ap(
-								function () {
-									var _n1 = submarine.replicas;
-									if (_n1.$ === 'Just') {
-										var replicas = _n1.a;
-										return A3(
-											author$project$YamlUtils$getNameAndValueWithIntendation,
-											'replicas',
-											elm$core$String$fromInt(replicas),
-											1);
-									} else {
-										return '';
-									}
-								}(),
-								_Utils_ap(
-									A2(author$project$YamlUtils$getNameWithIntendation, 'build', 1),
-									_Utils_ap(
-										submarine.incremental ? A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'incremental', 'true', 2) : A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'incremental', 'false', 2),
-										_Utils_ap(
-											A2(author$project$YamlUtils$getNameWithIntendation, 'gitSource', 2),
-											_Utils_ap(
-												A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'uri', submarine.gitUrl, 3),
-												_Utils_ap(
-													(elm$core$String$length(submarine.reference) > 0) ? A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'reference', submarine.reference, 3) : '',
-													(elm$core$String$length(submarine.contextDir) > 0) ? A3(author$project$YamlUtils$getNameAndValueWithIntendation, 'contextDir', submarine.contextDir, 3) : ''))))))))))));
+				function () {
+					var _n2 = submarine.gitHubRoleBinding;
+					switch (_n2.$) {
+						case 'GitHubResourceLoading':
+							return _List_fromArray(
+								[
+									elm$html$Html$text('Loading Role binding YAML.'),
+									A2(elm$html$Html$br, _List_Nil, _List_Nil)
+								]);
+						case 'GitHubResourceSuccess':
+							return _List_fromArray(
+								[
+									elm$html$Html$text('Role binding YAML loaded.'),
+									A2(elm$html$Html$br, _List_Nil, _List_Nil)
+								]);
+						default:
+							return _List_fromArray(
+								[
+									elm$html$Html$text('Error while loading Role binding YAML.'),
+									A2(elm$html$Html$br, _List_Nil, _List_Nil)
+								]);
+					}
+				}(),
+				function () {
+					var _n3 = submarine.gitHubOperator;
+					switch (_n3.$) {
+						case 'GitHubResourceLoading':
+							return _List_fromArray(
+								[
+									elm$html$Html$text('Loading Operator YAML.'),
+									A2(elm$html$Html$br, _List_Nil, _List_Nil)
+								]);
+						case 'GitHubResourceSuccess':
+							return _List_fromArray(
+								[
+									elm$html$Html$text('Operator YAML loaded.'),
+									A2(elm$html$Html$br, _List_Nil, _List_Nil)
+								]);
+						default:
+							return _List_fromArray(
+								[
+									elm$html$Html$text('Error while loading Operator YAML.'),
+									A2(elm$html$Html$br, _List_Nil, _List_Nil)
+								]);
+					}
+				}())));
 };
 var author$project$Main$ChangeOpenShiftProject = function (a) {
 	return {$: 'ChangeOpenShiftProject', a: a};
@@ -6140,26 +6857,8 @@ var elm$core$List$map = F2(
 			_List_Nil,
 			xs);
 	});
-var elm$json$Json$Decode$map = _Json_map1;
-var elm$json$Json$Decode$map2 = _Json_map2;
-var elm$json$Json$Decode$succeed = _Json_succeed;
-var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
-	switch (handler.$) {
-		case 'Normal':
-			return 0;
-		case 'MayStopPropagation':
-			return 1;
-		case 'MayPreventDefault':
-			return 2;
-		default:
-			return 3;
-	}
-};
-var elm$html$Html$br = _VirtualDom_node('br');
 var elm$html$Html$option = _VirtualDom_node('option');
 var elm$html$Html$select = _VirtualDom_node('select');
-var elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
-var elm$html$Html$text = elm$virtual_dom$VirtualDom$text;
 var elm$json$Json$Encode$bool = _Json_wrap;
 var elm$html$Html$Attributes$boolProperty = F2(
 	function (key, bool) {
@@ -6184,7 +6883,6 @@ var elm$html$Html$Events$alwaysStop = function (x) {
 var elm$virtual_dom$VirtualDom$MayStopPropagation = function (a) {
 	return {$: 'MayStopPropagation', a: a};
 };
-var elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
 var elm$html$Html$Events$stopPropagationOn = F2(
 	function (event, decoder) {
 		return A2(
@@ -6332,22 +7030,6 @@ var author$project$Main$UpdateRuntime = function (a) {
 var elm$html$Html$Attributes$checked = elm$html$Html$Attributes$boolProperty('checked');
 var elm$html$Html$Attributes$name = elm$html$Html$Attributes$stringProperty('name');
 var elm$html$Html$Attributes$type_ = elm$html$Html$Attributes$stringProperty('type');
-var elm$virtual_dom$VirtualDom$Normal = function (a) {
-	return {$: 'Normal', a: a};
-};
-var elm$html$Html$Events$on = F2(
-	function (event, decoder) {
-		return A2(
-			elm$virtual_dom$VirtualDom$on,
-			event,
-			elm$virtual_dom$VirtualDom$Normal(decoder));
-	});
-var elm$html$Html$Events$onClick = function (msg) {
-	return A2(
-		elm$html$Html$Events$on,
-		'click',
-		elm$json$Json$Decode$succeed(msg));
-};
 var author$project$Main$viewRuntime = function (runtime) {
 	var isSpringBootSelected = function () {
 		if (runtime.$ === 'Quarkus') {
@@ -6433,74 +7115,80 @@ var author$project$Main$view = function (submarine) {
 						]),
 					_Utils_ap(
 						author$project$Main$viewOpenShiftProjects(submarine),
-						_List_fromArray(
-							[
-								A2(
-								elm$html$Html$fieldset,
-								_List_Nil,
+						_Utils_ap(
+							author$project$Main$viewGitHubResourceStatus(submarine),
+							_Utils_ap(
+								author$project$Main$viewDeploySubmarineOperator(submarine),
 								_Utils_ap(
 									_List_fromArray(
 										[
 											A2(
-											elm$html$Html$legend,
+											elm$html$Html$fieldset,
 											_List_Nil,
-											_List_fromArray(
-												[
-													elm$html$Html$text('Submarine configuration')
-												]))
+											_Utils_ap(
+												_List_fromArray(
+													[
+														A2(
+														elm$html$Html$legend,
+														_List_Nil,
+														_List_fromArray(
+															[
+																elm$html$Html$text('Submarine configuration')
+															]))
+													]),
+												_Utils_ap(
+													author$project$Main$viewRuntime(submarine.runtime),
+													_Utils_ap(
+														author$project$Main$viewReplicas(submarine),
+														_List_fromArray(
+															[
+																elm$html$Html$text('Incremental build: '),
+																A2(
+																elm$html$Html$input,
+																_List_fromArray(
+																	[
+																		elm$html$Html$Attributes$type_('checkbox'),
+																		elm$html$Html$Attributes$checked(submarine.incremental),
+																		elm$html$Html$Events$onClick(author$project$Main$SelectIncremental)
+																	]),
+																_List_Nil),
+																A2(elm$html$Html$br, _List_Nil, _List_Nil),
+																elm$html$Html$text('Git URL: '),
+																A2(
+																elm$html$Html$input,
+																_List_fromArray(
+																	[
+																		elm$html$Html$Attributes$placeholder('Git URL'),
+																		elm$html$Html$Attributes$value(submarine.gitUrl),
+																		elm$html$Html$Events$onInput(author$project$Main$UpdateGitUrl)
+																	]),
+																_List_Nil),
+																A2(elm$html$Html$br, _List_Nil, _List_Nil),
+																elm$html$Html$text('Reference: '),
+																A2(
+																elm$html$Html$input,
+																_List_fromArray(
+																	[
+																		elm$html$Html$Attributes$placeholder('Reference'),
+																		elm$html$Html$Attributes$value(submarine.reference),
+																		elm$html$Html$Events$onInput(author$project$Main$UpdateReference)
+																	]),
+																_List_Nil),
+																A2(elm$html$Html$br, _List_Nil, _List_Nil),
+																elm$html$Html$text('Context directory: '),
+																A2(
+																elm$html$Html$input,
+																_List_fromArray(
+																	[
+																		elm$html$Html$Attributes$placeholder('Context directory'),
+																		elm$html$Html$Attributes$value(submarine.contextDir),
+																		elm$html$Html$Events$onInput(author$project$Main$UpdateContextDirectory)
+																	]),
+																_List_Nil),
+																A2(elm$html$Html$br, _List_Nil, _List_Nil)
+															])))))
 										]),
-									_Utils_ap(
-										author$project$Main$viewRuntime(submarine.runtime),
-										_Utils_ap(
-											author$project$Main$viewReplicas(submarine),
-											_List_fromArray(
-												[
-													elm$html$Html$text('Incremental build: '),
-													A2(
-													elm$html$Html$input,
-													_List_fromArray(
-														[
-															elm$html$Html$Attributes$type_('checkbox'),
-															elm$html$Html$Attributes$checked(submarine.incremental),
-															elm$html$Html$Events$onClick(author$project$Main$SelectIncremental)
-														]),
-													_List_Nil),
-													A2(elm$html$Html$br, _List_Nil, _List_Nil),
-													elm$html$Html$text('Git URL: '),
-													A2(
-													elm$html$Html$input,
-													_List_fromArray(
-														[
-															elm$html$Html$Attributes$placeholder('Git URL'),
-															elm$html$Html$Attributes$value(submarine.gitUrl),
-															elm$html$Html$Events$onInput(author$project$Main$UpdateGitUrl)
-														]),
-													_List_Nil),
-													A2(elm$html$Html$br, _List_Nil, _List_Nil),
-													elm$html$Html$text('Reference: '),
-													A2(
-													elm$html$Html$input,
-													_List_fromArray(
-														[
-															elm$html$Html$Attributes$placeholder('Reference'),
-															elm$html$Html$Attributes$value(submarine.reference),
-															elm$html$Html$Events$onInput(author$project$Main$UpdateReference)
-														]),
-													_List_Nil),
-													A2(elm$html$Html$br, _List_Nil, _List_Nil),
-													elm$html$Html$text('Context directory: '),
-													A2(
-													elm$html$Html$input,
-													_List_fromArray(
-														[
-															elm$html$Html$Attributes$placeholder('Context directory'),
-															elm$html$Html$Attributes$value(submarine.contextDir),
-															elm$html$Html$Events$onInput(author$project$Main$UpdateContextDirectory)
-														]),
-													_List_Nil),
-													A2(elm$html$Html$br, _List_Nil, _List_Nil)
-												])))))
-							])))),
+									author$project$Main$viewDeploySubmarineCustomResource(submarine))))))),
 				A2(
 				elm$html$Html$div,
 				_List_fromArray(
