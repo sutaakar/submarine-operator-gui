@@ -118,6 +118,7 @@ type Msg
     | SubmarineRoleBindingCreated String (Result Http.Error ())
     | SubmarineOperatorCreated String (Result Http.Error ())
     | DeploySubmarineOperator String
+    | DeploySubmarineCustomResource String
 
 
 update : Msg -> Submarine -> ( Submarine, Cmd Msg )
@@ -386,6 +387,11 @@ update msg submarine =
                             , Cmd.none
                             )
 
+        DeploySubmarineCustomResource selectedProject ->
+            ( submarine
+            , createSubmarineCustomResource submarine.openShiftUrl submarine.authenticationToken selectedProject (getSubAppAsYaml submarine)
+            )
+
 
 
 -- SUBSCRIPTIONS
@@ -427,6 +433,7 @@ view submarine =
                                ]
                         )
                    ]
+                ++ viewDeploySubmarineCustomResource submarine
             )
         , div [ style "width" "40%", style "float" "left" ] [ text "Submarine app custom resource YAML: ", textarea [ cols 80, rows 25, readonly True ] [ text (getSubAppAsYaml submarine) ] ]
         ]
@@ -589,6 +596,18 @@ viewDeploySubmarineOperator submarine =
             []
 
 
+viewDeploySubmarineCustomResource : Submarine -> List (Html Msg)
+viewDeploySubmarineCustomResource submarine =
+    case submarine.openShiftProjects of
+        Success projects selectedProject ->
+            [ button [ onClick (DeploySubmarineCustomResource selectedProject) ] [ text "Deploy Submarine Custom resource" ]
+            , br [] []
+            ]
+
+        _ ->
+            []
+
+
 
 -- HTTP
 
@@ -688,6 +707,19 @@ createSubmarineDeployment openShiftUrl authenticationToken namespace yamlContent
         { method = "POST"
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
         , url = openShiftUrl ++ "/apis/apps/v1/namespaces/" ++ namespace ++ "/deployments"
+        , body = Http.stringBody "application/yaml" yamlContent
+        , expect = Http.expectWhatever (SubmarineOperatorCreated namespace)
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+createSubmarineCustomResource : String -> String -> String -> String -> Cmd Msg
+createSubmarineCustomResource openShiftUrl authenticationToken namespace yamlContent =
+    Http.request
+        { method = "POST"
+        , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
+        , url = openShiftUrl ++ "/apis/app.kiegroup.org/v1alpha1/namespaces/" ++ namespace ++ "/subapps"
         , body = Http.stringBody "application/yaml" yamlContent
         , expect = Http.expectWhatever (SubmarineOperatorCreated namespace)
         , timeout = Nothing
