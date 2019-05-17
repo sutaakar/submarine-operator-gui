@@ -38,10 +38,10 @@ init flag =
     ( { openShiftUrl = flag.openShiftUrl
       , authenticationToken = flag.authenticationToken
       , openShiftProjects = Loading
-      , gitHubServiceAccount = GitHubResourceLoading
-      , gitHubRole = GitHubResourceLoading
-      , gitHubRoleBinding = GitHubResourceLoading
-      , gitHubOperator = GitHubResourceLoading
+      , gitHubServiceAccount = GitHubResourceNotLoaded
+      , gitHubRole = GitHubResourceNotLoaded
+      , gitHubRoleBinding = GitHubResourceNotLoaded
+      , gitHubOperator = GitHubResourceNotLoaded
       , operatorDeploymentStatus = OperatorNotDeployed
       , runtime = Quarkus
       , replicas = Nothing
@@ -84,7 +84,8 @@ type Runtime
 
 
 type GitHubResource
-    = GitHubResourceLoading
+    = GitHubResourceNotLoaded
+    | GitHubResourceLoading
     | GitHubResourceSuccess String
     | GitHubResourceError
 
@@ -165,11 +166,13 @@ update msg submarine =
             case result of
                 Ok (firstProject :: otherProjects) ->
                     ( { submarine | openShiftProjects = Success ([ firstProject ] ++ otherProjects) firstProject }
+                        |> (\s -> { submarine | gitHubServiceAccount = GitHubResourceLoading })
                     , getSubmarineServiceAccountYaml
                     )
 
                 Ok [] ->
                     ( { submarine | openShiftProjects = Success [] "" }
+                        |> (\s -> { submarine | gitHubServiceAccount = GitHubResourceLoading })
                     , getSubmarineServiceAccountYaml
                     )
 
@@ -194,11 +197,13 @@ update msg submarine =
             case result of
                 Ok loadedSubmarineServiceAccountYaml ->
                     ( { submarine | gitHubServiceAccount = GitHubResourceSuccess loadedSubmarineServiceAccountYaml }
+                        |> (\s -> { s | gitHubRole = GitHubResourceLoading })
                     , getSubmarineRoleYaml
                     )
 
                 Err error ->
                     ( { submarine | gitHubServiceAccount = GitHubResourceError }
+                        |> (\s -> { s | gitHubRole = GitHubResourceLoading })
                     , getSubmarineRoleYaml
                     )
 
@@ -206,11 +211,13 @@ update msg submarine =
             case result of
                 Ok loadedSubmarineRoleYaml ->
                     ( { submarine | gitHubRole = GitHubResourceSuccess loadedSubmarineRoleYaml }
+                        |> (\s -> { s | gitHubRoleBinding = GitHubResourceLoading })
                     , getSubmarineRoleBindingYaml
                     )
 
                 Err error ->
                     ( { submarine | gitHubRole = GitHubResourceError }
+                        |> (\s -> { s | gitHubRoleBinding = GitHubResourceLoading })
                     , getSubmarineRoleBindingYaml
                     )
 
@@ -218,11 +225,13 @@ update msg submarine =
             case result of
                 Ok loadedSubmarineRoleBindingYaml ->
                     ( { submarine | gitHubRoleBinding = GitHubResourceSuccess loadedSubmarineRoleBindingYaml }
+                        |> (\s -> { s | gitHubOperator = GitHubResourceLoading })
                     , getSubmarineOperatorYaml
                     )
 
                 Err error ->
                     ( { submarine | gitHubRoleBinding = GitHubResourceError }
+                        |> (\s -> { s | gitHubOperator = GitHubResourceLoading })
                     , getSubmarineOperatorYaml
                     )
 
@@ -532,6 +541,9 @@ viewGitHubResourceStatus submarine =
 
         GitHubResourceError ->
             [ text "Error while loading Service account YAML.", br [] [] ]
+
+        GitHubResourceNotLoaded ->
+            []
     )
         ++ (case submarine.gitHubRole of
                 GitHubResourceLoading ->
@@ -542,6 +554,9 @@ viewGitHubResourceStatus submarine =
 
                 GitHubResourceError ->
                     [ text "Error while loading Role YAML.", br [] [] ]
+
+                GitHubResourceNotLoaded ->
+                    []
            )
         ++ (case submarine.gitHubRoleBinding of
                 GitHubResourceLoading ->
@@ -552,6 +567,9 @@ viewGitHubResourceStatus submarine =
 
                 GitHubResourceError ->
                     [ text "Error while loading Role binding YAML.", br [] [] ]
+
+                GitHubResourceNotLoaded ->
+                    []
            )
         ++ (case submarine.gitHubOperator of
                 GitHubResourceLoading ->
@@ -562,6 +580,9 @@ viewGitHubResourceStatus submarine =
 
                 GitHubResourceError ->
                     [ text "Error while loading Operator YAML.", br [] [] ]
+
+                GitHubResourceNotLoaded ->
+                    []
            )
 
 
