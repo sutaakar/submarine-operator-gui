@@ -37,7 +37,7 @@ init : Flag -> ( Submarine, Cmd Msg )
 init flag =
     ( { openShiftUrl = flag.openShiftUrl
       , authenticationToken = flag.authenticationToken
-      , openShiftProjects = Loading
+      , openShiftProjects = OpenShiftProjectsLoading
       , gitHubServiceAccount = GitHubResourceNotLoaded
       , gitHubRole = GitHubResourceNotLoaded
       , gitHubRoleBinding = GitHubResourceNotLoaded
@@ -73,9 +73,9 @@ type alias Submarine =
 
 
 type Projects
-    = Loading
-    | Success (List String) String
-    | Error Http.Error
+    = OpenShiftProjectsLoading
+    | OpenShiftProjectsLoaded (List String) String
+    | OpenShiftProjectsError Http.Error
 
 
 type Runtime
@@ -165,26 +165,26 @@ update msg submarine =
         GotOpenShiftProjects result ->
             case result of
                 Ok (firstProject :: otherProjects) ->
-                    ( { submarine | openShiftProjects = Success ([ firstProject ] ++ otherProjects) firstProject }
+                    ( { submarine | openShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) firstProject }
                         |> (\s -> { submarine | gitHubServiceAccount = GitHubResourceLoading })
                     , getSubmarineServiceAccountYaml
                     )
 
                 Ok [] ->
-                    ( { submarine | openShiftProjects = Success [] "" }
+                    ( { submarine | openShiftProjects = OpenShiftProjectsLoaded [] "" }
                         |> (\s -> { submarine | gitHubServiceAccount = GitHubResourceLoading })
                     , getSubmarineServiceAccountYaml
                     )
 
                 Err error ->
-                    ( { submarine | openShiftProjects = Error error }
+                    ( { submarine | openShiftProjects = OpenShiftProjectsError error }
                     , Cmd.none
                     )
 
         ChangeOpenShiftProject newOpenShiftProject ->
             case submarine.openShiftProjects of
-                Success projects _ ->
-                    ( { submarine | openShiftProjects = Success projects newOpenShiftProject }
+                OpenShiftProjectsLoaded projects _ ->
+                    ( { submarine | openShiftProjects = OpenShiftProjectsLoaded projects newOpenShiftProject }
                     , Cmd.none
                     )
 
@@ -494,19 +494,19 @@ viewRuntime runtime =
 viewOpenShiftProjects : Submarine -> List (Html Msg)
 viewOpenShiftProjects submarine =
     case submarine.openShiftProjects of
-        Loading ->
+        OpenShiftProjectsLoading ->
             [ text "Loading OpenShift projects..."
             , br [] []
             ]
 
-        Success projects selectedProject ->
+        OpenShiftProjectsLoaded projects selectedProject ->
             [ text "OpenShift projects: "
             , select [ onInput ChangeOpenShiftProject ]
                 (List.map (\p -> option [ value p, selected (p == selectedProject) ] [ text p ]) projects)
             , br [] []
             ]
 
-        Error errorHttp ->
+        OpenShiftProjectsError errorHttp ->
             case errorHttp of
                 Http.BadUrl url ->
                     [ text "No valid URL for OpenShift projects."
@@ -589,7 +589,7 @@ viewGitHubResourceStatus submarine =
 viewDeploySubmarineOperator : Submarine -> List (Html Msg)
 viewDeploySubmarineOperator submarine =
     case submarine.openShiftProjects of
-        Success projects selectedProject ->
+        OpenShiftProjectsLoaded projects selectedProject ->
             [ button [ onClick (DeploySubmarineOperator selectedProject) ] [ text "Deploy Submarine Operator" ]
             , br [] []
             ]
@@ -620,7 +620,7 @@ viewDeploySubmarineOperator submarine =
 viewDeploySubmarineCustomResource : Submarine -> List (Html Msg)
 viewDeploySubmarineCustomResource submarine =
     case submarine.openShiftProjects of
-        Success projects selectedProject ->
+        OpenShiftProjectsLoaded projects selectedProject ->
             [ button [ onClick (DeploySubmarineCustomResource selectedProject) ] [ text "Deploy Submarine Custom resource" ]
             , br [] []
             ]
