@@ -37,7 +37,7 @@ init : Flag -> ( Submarine, Cmd Msg )
 init flag =
     ( { openShiftUrl = flag.openShiftUrl
       , authenticationToken = flag.authenticationToken
-      , openShiftProjects = OpenShiftProjectsLoading
+      , availableOpenShiftProjects = OpenShiftProjectsLoading
       , gitHubServiceAccount = GitHubResourceNotLoaded
       , gitHubRole = GitHubResourceNotLoaded
       , gitHubRoleBinding = GitHubResourceNotLoaded
@@ -57,7 +57,7 @@ init flag =
 type alias Submarine =
     { openShiftUrl : String
     , authenticationToken : String
-    , openShiftProjects : Projects
+    , availableOpenShiftProjects : Projects
     , gitHubServiceAccount : GitHubResource
     , gitHubRole : GitHubResource
     , gitHubRoleBinding : GitHubResource
@@ -165,26 +165,26 @@ update msg submarine =
         GotOpenShiftProjects result ->
             case result of
                 Ok (firstProject :: otherProjects) ->
-                    ( { submarine | openShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) firstProject }
+                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) firstProject }
                         |> (\s -> { submarine | gitHubServiceAccount = GitHubResourceLoading })
                     , getSubmarineServiceAccountYaml
                     )
 
                 Ok [] ->
-                    ( { submarine | openShiftProjects = OpenShiftProjectsLoaded [] "" }
+                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded [] "" }
                         |> (\s -> { submarine | gitHubServiceAccount = GitHubResourceLoading })
                     , getSubmarineServiceAccountYaml
                     )
 
                 Err error ->
-                    ( { submarine | openShiftProjects = OpenShiftProjectsError error }
+                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsError error }
                     , Cmd.none
                     )
 
         ChangeOpenShiftProject newOpenShiftProject ->
-            case submarine.openShiftProjects of
+            case submarine.availableOpenShiftProjects of
                 OpenShiftProjectsLoaded projects _ ->
-                    ( { submarine | openShiftProjects = OpenShiftProjectsLoaded projects newOpenShiftProject }
+                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded projects newOpenShiftProject }
                     , Cmd.none
                     )
 
@@ -493,7 +493,7 @@ viewRuntime runtime =
 
 viewOpenShiftProjects : Submarine -> List (Html Msg)
 viewOpenShiftProjects submarine =
-    case submarine.openShiftProjects of
+    case submarine.availableOpenShiftProjects of
         OpenShiftProjectsLoading ->
             [ text "Loading OpenShift projects..."
             , br [] []
@@ -588,7 +588,7 @@ viewGitHubResourceStatus submarine =
 
 viewDeploySubmarineOperator : Submarine -> List (Html Msg)
 viewDeploySubmarineOperator submarine =
-    case submarine.openShiftProjects of
+    case submarine.availableOpenShiftProjects of
         OpenShiftProjectsLoaded projects selectedProject ->
             [ button [ onClick (DeploySubmarineOperator selectedProject) ] [ text "Deploy Submarine Operator" ]
             , br [] []
@@ -619,7 +619,7 @@ viewDeploySubmarineOperator submarine =
 
 viewDeploySubmarineCustomResource : Submarine -> List (Html Msg)
 viewDeploySubmarineCustomResource submarine =
-    case submarine.openShiftProjects of
+    case submarine.availableOpenShiftProjects of
         OpenShiftProjectsLoaded projects selectedProject ->
             [ button [ onClick (DeploySubmarineCustomResource selectedProject) ] [ text "Deploy Submarine Custom resource" ]
             , br [] []
