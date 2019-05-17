@@ -57,7 +57,7 @@ init flag =
 type alias Submarine =
     { openShiftUrl : String
     , authenticationToken : String
-    , availableOpenShiftProjects : Projects
+    , availableOpenShiftProjects : OpenShiftProjects
     , gitHubServiceAccount : GitHubResource
     , gitHubRole : GitHubResource
     , gitHubRoleBinding : GitHubResource
@@ -72,9 +72,15 @@ type alias Submarine =
     }
 
 
-type Projects
+type alias OpenShiftProject =
+    { name : String
+    }
+
+
+type OpenShiftProjects
     = OpenShiftProjectsLoading
-    | OpenShiftProjectsLoaded (List String) String
+    | OpenShiftProjectsEmpty
+    | OpenShiftProjectsLoaded (List String) OpenShiftProject
     | OpenShiftProjectsError Http.Error
 
 
@@ -165,13 +171,13 @@ update msg submarine =
         GotOpenShiftProjects result ->
             case result of
                 Ok (firstProject :: otherProjects) ->
-                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) firstProject }
+                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) { name = firstProject } }
                         |> (\s -> { submarine | gitHubServiceAccount = GitHubResourceLoading })
                     , getSubmarineServiceAccountYaml
                     )
 
                 Ok [] ->
-                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded [] "" }
+                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsEmpty }
                         |> (\s -> { submarine | gitHubServiceAccount = GitHubResourceLoading })
                     , getSubmarineServiceAccountYaml
                     )
@@ -184,7 +190,7 @@ update msg submarine =
         ChangeOpenShiftProject newOpenShiftProject ->
             case submarine.availableOpenShiftProjects of
                 OpenShiftProjectsLoaded projects _ ->
-                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded projects newOpenShiftProject }
+                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded projects { name = newOpenShiftProject } }
                     , Cmd.none
                     )
 
@@ -502,7 +508,12 @@ viewOpenShiftProjects submarine =
         OpenShiftProjectsLoaded projects selectedProject ->
             [ text "OpenShift projects: "
             , select [ onInput ChangeOpenShiftProject ]
-                (List.map (\p -> option [ value p, selected (p == selectedProject) ] [ text p ]) projects)
+                (List.map (\p -> option [ value p, selected (p == selectedProject.name) ] [ text p ]) projects)
+            , br [] []
+            ]
+
+        OpenShiftProjectsEmpty ->
+            [ text "No OpenShift project found."
             , br [] []
             ]
 
@@ -590,7 +601,7 @@ viewDeploySubmarineOperator : Submarine -> List (Html Msg)
 viewDeploySubmarineOperator submarine =
     case submarine.availableOpenShiftProjects of
         OpenShiftProjectsLoaded projects selectedProject ->
-            [ button [ onClick (DeploySubmarineOperator selectedProject) ] [ text "Deploy Submarine Operator" ]
+            [ button [ onClick (DeploySubmarineOperator selectedProject.name) ] [ text "Deploy Submarine Operator" ]
             , br [] []
             ]
                 ++ (case submarine.operatorDeploymentStatus of
@@ -621,7 +632,7 @@ viewDeploySubmarineCustomResource : Submarine -> List (Html Msg)
 viewDeploySubmarineCustomResource submarine =
     case submarine.availableOpenShiftProjects of
         OpenShiftProjectsLoaded projects selectedProject ->
-            [ button [ onClick (DeploySubmarineCustomResource selectedProject) ] [ text "Deploy Submarine Custom resource" ]
+            [ button [ onClick (DeploySubmarineCustomResource selectedProject.name) ] [ text "Deploy Submarine Custom resource" ]
             , br [] []
             ]
 
