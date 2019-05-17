@@ -68,7 +68,10 @@ items:
             name: proxy-tls
 
         - name: app
-          image: openshift/hello-openshift:latest
+          image: docker.io/karelsuta/marine:1.0.1
+          env:
+            - name: ROUTE_URL
+              value: https://example.com
         volumes:
         - name: proxy-tls
           secret:
