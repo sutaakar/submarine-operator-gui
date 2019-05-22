@@ -68,7 +68,7 @@ items:
             name: proxy-tls
 
         - name: app
-          image: docker.io/karelsuta/marine:1.0.1
+          image: docker.io/karelsuta/marine:1.0.4
           env:
             - name: ROUTE_URL
               value: https://example.com
