@@ -172,13 +172,13 @@ update msg submarine =
             case result of
                 Ok (firstProject :: otherProjects) ->
                     ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) { name = firstProject } }
-                        |> (\s -> { submarine | gitHubServiceAccount = GitHubResourceLoading })
+                        |> (\s -> { s | gitHubServiceAccount = GitHubResourceLoading })
                     , getSubmarineServiceAccountYaml
                     )
 
                 Ok [] ->
                     ( { submarine | availableOpenShiftProjects = OpenShiftProjectsEmpty }
-                        |> (\s -> { submarine | gitHubServiceAccount = GitHubResourceLoading })
+                        |> (\s -> { s | gitHubServiceAccount = GitHubResourceLoading })
                     , getSubmarineServiceAccountYaml
                     )
 
