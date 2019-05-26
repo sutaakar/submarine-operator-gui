@@ -6,6 +6,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode exposing (Decoder, field, string)
+import Task
 import YamlUtils
 
 
@@ -173,13 +174,13 @@ update msg submarine =
                 Ok (firstProject :: otherProjects) ->
                     ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) { name = firstProject } }
                         |> (\s -> { s | gitHubServiceAccount = GitHubResourceLoading })
-                    , getSubmarineServiceAccountYaml
+                    , Task.attempt GotSubmarineServiceAccountYaml getSubmarineServiceAccountYaml
                     )
 
                 Ok [] ->
                     ( { submarine | availableOpenShiftProjects = OpenShiftProjectsEmpty }
                         |> (\s -> { s | gitHubServiceAccount = GitHubResourceLoading })
-                    , getSubmarineServiceAccountYaml
+                    , Task.attempt GotSubmarineServiceAccountYaml getSubmarineServiceAccountYaml
                     )
 
                 Err error ->
@@ -662,11 +663,15 @@ openShiftProjectsDecoder =
     field "items" (Json.Decode.list (field "metadata" (field "name" string)))
 
 
-getSubmarineServiceAccountYaml : Cmd Msg
+getSubmarineServiceAccountYaml : Task.Task Http.Error String
 getSubmarineServiceAccountYaml =
-    Http.get
-        { url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/service_account.yaml"
-        , expect = Http.expectString GotSubmarineServiceAccountYaml
+    Http.task
+        { method = "GET"
+        , headers = []
+        , url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/service_account.yaml"
+        , body = Http.emptyBody
+        , resolver = Http.stringResolver handleResponse
+        , timeout = Nothing
         }
 
 
@@ -757,6 +762,25 @@ createSubmarineCustomResource openShiftUrl authenticationToken namespace yamlCon
         , timeout = Nothing
         , tracker = Nothing
         }
+
+
+handleResponse : Http.Response String -> Result Http.Error String
+handleResponse response =
+    case response of
+        Http.BadUrl_ url ->
+            Err (Http.BadUrl url)
+
+        Http.Timeout_ ->
+            Err Http.Timeout
+
+        Http.BadStatus_ { statusCode } _ ->
+            Err (Http.BadStatus statusCode)
+
+        Http.NetworkError_ ->
+            Err Http.NetworkError
+
+        Http.GoodStatus_ _ body ->
+            Ok body
 
 
 
