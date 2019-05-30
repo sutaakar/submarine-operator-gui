@@ -205,13 +205,13 @@ update msg submarine =
                 Ok loadedSubmarineServiceAccountYaml ->
                     ( { submarine | gitHubServiceAccount = GitHubResourceSuccess loadedSubmarineServiceAccountYaml }
                         |> (\s -> { s | gitHubRole = GitHubResourceLoading })
-                    , getSubmarineRoleYaml
+                    , Task.attempt GotSubmarineRoleYaml getSubmarineRoleYaml
                     )
 
                 Err error ->
                     ( { submarine | gitHubServiceAccount = GitHubResourceError }
                         |> (\s -> { s | gitHubRole = GitHubResourceLoading })
-                    , getSubmarineRoleYaml
+                    , Task.attempt GotSubmarineRoleYaml getSubmarineRoleYaml
                     )
 
         GotSubmarineRoleYaml result ->
@@ -219,13 +219,13 @@ update msg submarine =
                 Ok loadedSubmarineRoleYaml ->
                     ( { submarine | gitHubRole = GitHubResourceSuccess loadedSubmarineRoleYaml }
                         |> (\s -> { s | gitHubRoleBinding = GitHubResourceLoading })
-                    , getSubmarineRoleBindingYaml
+                    , Task.attempt GotSubmarineRoleBindingYaml getSubmarineRoleBindingYaml
                     )
 
                 Err error ->
                     ( { submarine | gitHubRole = GitHubResourceError }
                         |> (\s -> { s | gitHubRoleBinding = GitHubResourceLoading })
-                    , getSubmarineRoleBindingYaml
+                    , Task.attempt GotSubmarineRoleBindingYaml getSubmarineRoleBindingYaml
                     )
 
         GotSubmarineRoleBindingYaml result ->
@@ -233,13 +233,13 @@ update msg submarine =
                 Ok loadedSubmarineRoleBindingYaml ->
                     ( { submarine | gitHubRoleBinding = GitHubResourceSuccess loadedSubmarineRoleBindingYaml }
                         |> (\s -> { s | gitHubOperator = GitHubResourceLoading })
-                    , getSubmarineOperatorYaml
+                    , Task.attempt GotSubmarineOperatorYaml getSubmarineOperatorYaml
                     )
 
                 Err error ->
                     ( { submarine | gitHubRoleBinding = GitHubResourceError }
                         |> (\s -> { s | gitHubOperator = GitHubResourceLoading })
-                    , getSubmarineOperatorYaml
+                    , Task.attempt GotSubmarineOperatorYaml getSubmarineOperatorYaml
                     )
 
         GotSubmarineOperatorYaml result ->
@@ -675,27 +675,39 @@ getSubmarineServiceAccountYaml =
         }
 
 
-getSubmarineRoleYaml : Cmd Msg
+getSubmarineRoleYaml : Task.Task Http.Error String
 getSubmarineRoleYaml =
-    Http.get
-        { url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/role.yaml"
-        , expect = Http.expectString GotSubmarineRoleYaml
+    Http.task
+        { method = "GET"
+        , headers = []
+        , url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/role.yaml"
+        , body = Http.emptyBody
+        , resolver = Http.stringResolver handleResponse
+        , timeout = Nothing
         }
 
 
-getSubmarineRoleBindingYaml : Cmd Msg
+getSubmarineRoleBindingYaml : Task.Task Http.Error String
 getSubmarineRoleBindingYaml =
-    Http.get
-        { url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/role_binding.yaml"
-        , expect = Http.expectString GotSubmarineRoleBindingYaml
+    Http.task
+        { method = "GET"
+        , headers = []
+        , url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/role_binding.yaml"
+        , body = Http.emptyBody
+        , resolver = Http.stringResolver handleResponse
+        , timeout = Nothing
         }
 
 
-getSubmarineOperatorYaml : Cmd Msg
+getSubmarineOperatorYaml : Task.Task Http.Error String
 getSubmarineOperatorYaml =
-    Http.get
-        { url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/operator.yaml"
-        , expect = Http.expectString GotSubmarineOperatorYaml
+    Http.task
+        { method = "GET"
+        , headers = []
+        , url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/operator.yaml"
+        , body = Http.emptyBody
+        , resolver = Http.stringResolver handleResponse
+        , timeout = Nothing
         }
 
 
@@ -764,7 +776,7 @@ createSubmarineCustomResource openShiftUrl authenticationToken namespace yamlCon
         }
 
 
-handleResponse : Http.Response String -> Result Http.Error String
+handleResponse : Http.Response a -> Result Http.Error a
 handleResponse response =
     case response of
         Http.BadUrl_ url ->
