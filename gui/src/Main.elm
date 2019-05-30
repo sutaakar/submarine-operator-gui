@@ -121,10 +121,11 @@ type Msg
     | GotSubmarineRoleYaml (Result Http.Error String)
     | GotSubmarineRoleBindingYaml (Result Http.Error String)
     | GotSubmarineOperatorYaml (Result Http.Error String)
-    | SubmarineServiceAccountCreated String (Result Http.Error ())
-    | SubmarineRoleCreated String (Result Http.Error ())
-    | SubmarineRoleBindingCreated String (Result Http.Error ())
-    | SubmarineOperatorCreated String (Result Http.Error ())
+    | SubmarineServiceAccountCreated String (Result Http.Error String)
+    | SubmarineRoleCreated String (Result Http.Error String)
+    | SubmarineRoleBindingCreated String (Result Http.Error String)
+    | SubmarineOperatorCreated String (Result Http.Error String)
+    | SubmarineCustomResourceCreated String (Result Http.Error ())
     | DeploySubmarineOperator String
     | DeploySubmarineCustomResource String
 
@@ -251,7 +252,7 @@ update msg submarine =
             case submarine.gitHubServiceAccount of
                 GitHubResourceSuccess submarineServiceAccount ->
                     ( { submarine | operatorDeploymentStatus = OperatorDeploying }
-                    , createSubmarineServiceAccount submarine.openShiftUrl submarine.authenticationToken selectedProject submarineServiceAccount
+                    , Task.attempt (SubmarineServiceAccountCreated selectedProject) (createSubmarineServiceAccount submarine.openShiftUrl submarine.authenticationToken selectedProject submarineServiceAccount)
                     )
 
                 _ ->
@@ -265,7 +266,7 @@ update msg submarine =
                     case submarine.gitHubRole of
                         GitHubResourceSuccess submarineRole ->
                             ( submarine
-                            , createSubmarineRole submarine.openShiftUrl submarine.authenticationToken selectedProject submarineRole
+                            , Task.attempt (SubmarineRoleCreated selectedProject) (createSubmarineRole submarine.openShiftUrl submarine.authenticationToken selectedProject submarineRole)
                             )
 
                         _ ->
@@ -301,7 +302,7 @@ update msg submarine =
                     case submarine.gitHubRoleBinding of
                         GitHubResourceSuccess submarineRoleBinding ->
                             ( submarine
-                            , createSubmarineRoleBinding submarine.openShiftUrl submarine.authenticationToken selectedProject submarineRoleBinding
+                            , Task.attempt (SubmarineRoleBindingCreated selectedProject) (createSubmarineRoleBinding submarine.openShiftUrl submarine.authenticationToken selectedProject submarineRoleBinding)
                             )
 
                         _ ->
@@ -337,7 +338,7 @@ update msg submarine =
                     case submarine.gitHubOperator of
                         GitHubResourceSuccess submarineOperator ->
                             ( submarine
-                            , createSubmarineDeployment submarine.openShiftUrl submarine.authenticationToken selectedProject submarineOperator
+                            , Task.attempt (SubmarineOperatorCreated selectedProject) (createSubmarineDeployment submarine.openShiftUrl submarine.authenticationToken selectedProject submarineOperator)
                             )
 
                         _ ->
@@ -399,6 +400,12 @@ update msg submarine =
         DeploySubmarineCustomResource selectedProject ->
             ( submarine
             , createSubmarineCustomResource submarine.openShiftUrl submarine.authenticationToken selectedProject (getSubAppAsYaml submarine)
+            )
+
+        SubmarineCustomResourceCreated selectedProject result ->
+            --todo: Add custom resource handling
+            ( submarine
+            , Cmd.none
             )
 
 
@@ -725,55 +732,51 @@ getSubmarineOperatorYaml =
         }
 
 
-createSubmarineServiceAccount : String -> String -> String -> String -> Cmd Msg
+createSubmarineServiceAccount : String -> String -> String -> String -> Task.Task Http.Error String
 createSubmarineServiceAccount openShiftUrl authenticationToken namespace yamlContent =
-    Http.request
+    Http.task
         { method = "POST"
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
         , url = openShiftUrl ++ "/api/v1/namespaces/" ++ namespace ++ "/serviceaccounts"
         , body = Http.stringBody "application/yaml" yamlContent
-        , expect = Http.expectWhatever (SubmarineServiceAccountCreated namespace)
+        , resolver = Http.stringResolver handleResponse
         , timeout = Nothing
-        , tracker = Nothing
         }
 
 
-createSubmarineRole : String -> String -> String -> String -> Cmd Msg
+createSubmarineRole : String -> String -> String -> String -> Task.Task Http.Error String
 createSubmarineRole openShiftUrl authenticationToken namespace yamlContent =
-    Http.request
+    Http.task
         { method = "POST"
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
         , url = openShiftUrl ++ "/apis/rbac.authorization.k8s.io/v1/namespaces/" ++ namespace ++ "/roles"
         , body = Http.stringBody "application/yaml" yamlContent
-        , expect = Http.expectWhatever (SubmarineRoleCreated namespace)
+        , resolver = Http.stringResolver handleResponse
         , timeout = Nothing
-        , tracker = Nothing
         }
 
 
-createSubmarineRoleBinding : String -> String -> String -> String -> Cmd Msg
+createSubmarineRoleBinding : String -> String -> String -> String -> Task.Task Http.Error String
 createSubmarineRoleBinding openShiftUrl authenticationToken namespace yamlContent =
-    Http.request
+    Http.task
         { method = "POST"
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
         , url = openShiftUrl ++ "/apis/rbac.authorization.k8s.io/v1/namespaces/" ++ namespace ++ "/rolebindings"
         , body = Http.stringBody "application/yaml" yamlContent
-        , expect = Http.expectWhatever (SubmarineRoleBindingCreated namespace)
+        , resolver = Http.stringResolver handleResponse
         , timeout = Nothing
-        , tracker = Nothing
         }
 
 
-createSubmarineDeployment : String -> String -> String -> String -> Cmd Msg
+createSubmarineDeployment : String -> String -> String -> String -> Task.Task Http.Error String
 createSubmarineDeployment openShiftUrl authenticationToken namespace yamlContent =
-    Http.request
+    Http.task
         { method = "POST"
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
         , url = openShiftUrl ++ "/apis/apps/v1/namespaces/" ++ namespace ++ "/deployments"
         , body = Http.stringBody "application/yaml" yamlContent
-        , expect = Http.expectWhatever (SubmarineOperatorCreated namespace)
+        , resolver = Http.stringResolver handleResponse
         , timeout = Nothing
-        , tracker = Nothing
         }
 
 
@@ -784,7 +787,7 @@ createSubmarineCustomResource openShiftUrl authenticationToken namespace yamlCon
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
         , url = openShiftUrl ++ "/apis/app.kiegroup.org/v1alpha1/namespaces/" ++ namespace ++ "/subapps"
         , body = Http.stringBody "application/yaml" yamlContent
-        , expect = Http.expectWhatever (SubmarineOperatorCreated namespace)
+        , expect = Http.expectWhatever (SubmarineCustomResourceCreated namespace)
         , timeout = Nothing
         , tracker = Nothing
         }
