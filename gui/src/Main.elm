@@ -81,7 +81,7 @@ type alias OpenShiftProject =
 type OpenShiftProjects
     = OpenShiftProjectsLoading
     | OpenShiftProjectsEmpty
-    | OpenShiftProjectsLoaded (List String) OpenShiftProject
+    | OpenShiftProjectsLoaded (List String) (Maybe OpenShiftProject)
     | OpenShiftProjectsError Http.Error
 
 
@@ -172,7 +172,7 @@ update msg submarine =
         GotOpenShiftProjects result ->
             case result of
                 Ok (firstProject :: otherProjects) ->
-                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) { name = firstProject } }
+                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) Nothing }
                         |> (\s -> { s | gitHubServiceAccount = GitHubResourceLoading })
                     , Task.attempt GotSubmarineServiceAccountYaml getSubmarineServiceAccountYaml
                     )
@@ -191,7 +191,7 @@ update msg submarine =
         ChangeOpenShiftProject newOpenShiftProject ->
             case submarine.availableOpenShiftProjects of
                 OpenShiftProjectsLoaded projects _ ->
-                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded projects { name = newOpenShiftProject } }
+                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded projects (Just { name = newOpenShiftProject }) }
                     , Cmd.none
                     )
 
@@ -507,11 +507,22 @@ viewOpenShiftProjects submarine =
             ]
 
         OpenShiftProjectsLoaded projects selectedProject ->
-            [ text "OpenShift projects: "
-            , select [ onInput ChangeOpenShiftProject ]
-                (List.map (\p -> option [ value p, selected (p == selectedProject.name) ] [ text p ]) projects)
-            , br [] []
-            ]
+            case selectedProject of
+                Just project ->
+                    [ text "OpenShift projects: "
+                    , select [ onInput ChangeOpenShiftProject ]
+                        (List.map (\p -> option [ value p, selected (p == project.name) ] [ text p ]) projects)
+                    , br [] []
+                    ]
+
+                Nothing ->
+                    [ text "OpenShift projects: "
+                    , select [ onInput ChangeOpenShiftProject ]
+                        ([ option [ value "", selected True ] [ text "Select project" ] ]
+                            ++ List.map (\p -> option [ value p, selected False ] [ text p ]) projects
+                        )
+                    , br [] []
+                    ]
 
         OpenShiftProjectsEmpty ->
             [ text "No OpenShift project found."
@@ -602,28 +613,33 @@ viewDeploySubmarineOperator : Submarine -> List (Html Msg)
 viewDeploySubmarineOperator submarine =
     case submarine.availableOpenShiftProjects of
         OpenShiftProjectsLoaded projects selectedProject ->
-            [ button [ onClick (DeploySubmarineOperator selectedProject.name) ] [ text "Deploy Submarine Operator" ]
-            , br [] []
-            ]
-                ++ (case submarine.operatorDeploymentStatus of
-                        OperatorNotDeployed ->
-                            []
+            case selectedProject of
+                Just project ->
+                    [ button [ onClick (DeploySubmarineOperator project.name) ] [ text "Deploy Submarine Operator" ]
+                    , br [] []
+                    ]
+                        ++ (case submarine.operatorDeploymentStatus of
+                                OperatorNotDeployed ->
+                                    []
 
-                        OperatorDeploying ->
-                            [ text "Submarine Operator is being deployed."
-                            , br [] []
-                            ]
+                                OperatorDeploying ->
+                                    [ text "Submarine Operator is being deployed."
+                                    , br [] []
+                                    ]
 
-                        OperatorDeployed ->
-                            [ text "Submarine Operator deployed."
-                            , br [] []
-                            ]
+                                OperatorDeployed ->
+                                    [ text "Submarine Operator deployed."
+                                    , br [] []
+                                    ]
 
-                        OperatorDeploymentError deploymentError ->
-                            [ text ("Error while deploying Submarine Operator: " ++ deploymentError)
-                            , br [] []
-                            ]
-                   )
+                                OperatorDeploymentError deploymentError ->
+                                    [ text ("Error while deploying Submarine Operator: " ++ deploymentError)
+                                    , br [] []
+                                    ]
+                           )
+
+                Nothing ->
+                    []
 
         _ ->
             []
@@ -633,9 +649,14 @@ viewDeploySubmarineCustomResource : Submarine -> List (Html Msg)
 viewDeploySubmarineCustomResource submarine =
     case submarine.availableOpenShiftProjects of
         OpenShiftProjectsLoaded projects selectedProject ->
-            [ button [ onClick (DeploySubmarineCustomResource selectedProject.name) ] [ text "Deploy Submarine Custom resource" ]
-            , br [] []
-            ]
+            case selectedProject of
+                Just project ->
+                    [ button [ onClick (DeploySubmarineCustomResource project.name) ] [ text "Deploy Submarine Custom resource" ]
+                    , br [] []
+                    ]
+
+                Nothing ->
+                    []
 
         _ ->
             []
