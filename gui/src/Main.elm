@@ -116,7 +116,7 @@ type Msg
     | UpdateReference String
     | UpdateContextDirectory String
     | GotOpenShiftProjects (Result Http.Error (List String))
-    | ChangeOpenShiftProject String
+    | ChangeOpenShiftProject (List String) String
     | GotSubmarineServiceAccountYaml (Result Http.Error String)
     | GotSubmarineRoleYaml (Result Http.Error String)
     | GotSubmarineRoleBindingYaml (Result Http.Error String)
@@ -188,17 +188,10 @@ update msg submarine =
                     , Cmd.none
                     )
 
-        ChangeOpenShiftProject newOpenShiftProject ->
-            case submarine.availableOpenShiftProjects of
-                OpenShiftProjectsLoaded projects _ ->
-                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded projects (Just { name = newOpenShiftProject }) }
-                    , Cmd.none
-                    )
-
-                _ ->
-                    ( submarine
-                    , Cmd.none
-                    )
+        ChangeOpenShiftProject projects newOpenShiftProject ->
+            ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded projects (Just { name = newOpenShiftProject }) }
+            , Cmd.none
+            )
 
         GotSubmarineServiceAccountYaml result ->
             case result of
@@ -510,14 +503,14 @@ viewOpenShiftProjects submarine =
             case selectedProject of
                 Just project ->
                     [ text "OpenShift projects: "
-                    , select [ onInput ChangeOpenShiftProject ]
+                    , select [ onInput (ChangeOpenShiftProject projects) ]
                         (List.map (\p -> option [ value p, selected (p == project.name) ] [ text p ]) projects)
                     , br [] []
                     ]
 
                 Nothing ->
                     [ text "OpenShift projects: "
-                    , select [ onInput ChangeOpenShiftProject ]
+                    , select [ onInput (ChangeOpenShiftProject projects) ]
                         ([ option [ value "", selected True ] [ text "Select project" ] ]
                             ++ List.map (\p -> option [ value p, selected False ] [ text p ]) projects
                         )
