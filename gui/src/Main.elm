@@ -175,6 +175,7 @@ update msg openShift =
                 Ok (firstProject :: otherProjects) ->
                     ( { openShift | availableOpenShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) Nothing }
                         |> (\s -> { s | gitHubServiceAccount = GitHubResourceLoading })
+                    , Task.attempt GotSubmarineServiceAccountYaml getSubmarineServiceAccountYaml
                     )
 
                 Ok [] ->
