@@ -117,17 +117,17 @@ type Msg
     | UpdateContextDirectory String
     | GotOpenShiftProjects (Result Http.Error (List String))
     | ChangeOpenShiftProject (List String) String
-    | GotSubmarineServiceAccountYaml (Result Http.Error String)
-    | GotSubmarineRoleYaml (Result Http.Error String)
-    | GotSubmarineRoleBindingYaml (Result Http.Error String)
-    | GotSubmarineOperatorYaml (Result Http.Error String)
-    | SubmarineServiceAccountCreated String (Result Http.Error String)
-    | SubmarineRoleCreated String (Result Http.Error String)
-    | SubmarineRoleBindingCreated String (Result Http.Error String)
-    | SubmarineOperatorCreated String (Result Http.Error String)
-    | SubmarineCustomResourceCreated String (Result Http.Error ())
-    | DeploySubmarineOperator String
-    | DeploySubmarineCustomResource String
+    | GotKogitoServiceAccountYaml (Result Http.Error String)
+    | GotKogitoRoleYaml (Result Http.Error String)
+    | GotKogitoRoleBindingYaml (Result Http.Error String)
+    | GotKogitoOperatorYaml (Result Http.Error String)
+    | KogitoServiceAccountCreated String (Result Http.Error String)
+    | KogitoRoleCreated String (Result Http.Error String)
+    | KogitoRoleBindingCreated String (Result Http.Error String)
+    | KogitoOperatorCreated String (Result Http.Error String)
+    | KogitoCustomResourceCreated String (Result Http.Error ())
+    | DeployKogitoOperator String
+    | DeployKogitoCustomResource String
 
 
 update : Msg -> OpenShift -> ( OpenShift, Cmd Msg )
@@ -175,13 +175,13 @@ update msg openShift =
                 Ok (firstProject :: otherProjects) ->
                     ( { openShift | availableOpenShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) Nothing }
                         |> (\s -> { s | gitHubServiceAccount = GitHubResourceLoading })
-                    , Task.attempt GotSubmarineServiceAccountYaml getSubmarineServiceAccountYaml
+                    , Task.attempt GotKogitoServiceAccountYaml getKogitoServiceAccountYaml
                     )
 
                 Ok [] ->
                     ( { openShift | availableOpenShiftProjects = OpenShiftProjectsEmpty }
                         |> (\s -> { s | gitHubServiceAccount = GitHubResourceLoading })
-                    , Task.attempt GotSubmarineServiceAccountYaml getSubmarineServiceAccountYaml
+                    , Task.attempt GotKogitoServiceAccountYaml getKogitoServiceAccountYaml
                     )
 
                 Err error ->
@@ -194,52 +194,52 @@ update msg openShift =
             , Cmd.none
             )
 
-        GotSubmarineServiceAccountYaml result ->
+        GotKogitoServiceAccountYaml result ->
             case result of
-                Ok loadedSubmarineServiceAccountYaml ->
-                    ( { openShift | gitHubServiceAccount = GitHubResourceSuccess loadedSubmarineServiceAccountYaml }
+                Ok loadedKogitoServiceAccountYaml ->
+                    ( { openShift | gitHubServiceAccount = GitHubResourceSuccess loadedKogitoServiceAccountYaml }
                         |> (\s -> { s | gitHubRole = GitHubResourceLoading })
-                    , Task.attempt GotSubmarineRoleYaml getSubmarineRoleYaml
+                    , Task.attempt GotKogitoRoleYaml getKogitoRoleYaml
                     )
 
                 Err error ->
                     ( { openShift | gitHubServiceAccount = GitHubResourceError }
                         |> (\s -> { s | gitHubRole = GitHubResourceLoading })
-                    , Task.attempt GotSubmarineRoleYaml getSubmarineRoleYaml
+                    , Task.attempt GotKogitoRoleYaml getKogitoRoleYaml
                     )
 
-        GotSubmarineRoleYaml result ->
+        GotKogitoRoleYaml result ->
             case result of
-                Ok loadedSubmarineRoleYaml ->
-                    ( { openShift | gitHubRole = GitHubResourceSuccess loadedSubmarineRoleYaml }
+                Ok loadedKogitoRoleYaml ->
+                    ( { openShift | gitHubRole = GitHubResourceSuccess loadedKogitoRoleYaml }
                         |> (\s -> { s | gitHubRoleBinding = GitHubResourceLoading })
-                    , Task.attempt GotSubmarineRoleBindingYaml getSubmarineRoleBindingYaml
+                    , Task.attempt GotKogitoRoleBindingYaml getKogitoRoleBindingYaml
                     )
 
                 Err error ->
                     ( { openShift | gitHubRole = GitHubResourceError }
                         |> (\s -> { s | gitHubRoleBinding = GitHubResourceLoading })
-                    , Task.attempt GotSubmarineRoleBindingYaml getSubmarineRoleBindingYaml
+                    , Task.attempt GotKogitoRoleBindingYaml getKogitoRoleBindingYaml
                     )
 
-        GotSubmarineRoleBindingYaml result ->
+        GotKogitoRoleBindingYaml result ->
             case result of
-                Ok loadedSubmarineRoleBindingYaml ->
-                    ( { openShift | gitHubRoleBinding = GitHubResourceSuccess loadedSubmarineRoleBindingYaml }
+                Ok loadedKogitoRoleBindingYaml ->
+                    ( { openShift | gitHubRoleBinding = GitHubResourceSuccess loadedKogitoRoleBindingYaml }
                         |> (\s -> { s | gitHubOperator = GitHubResourceLoading })
-                    , Task.attempt GotSubmarineOperatorYaml getSubmarineOperatorYaml
+                    , Task.attempt GotKogitoOperatorYaml getKogitoOperatorYaml
                     )
 
                 Err error ->
                     ( { openShift | gitHubRoleBinding = GitHubResourceError }
                         |> (\s -> { s | gitHubOperator = GitHubResourceLoading })
-                    , Task.attempt GotSubmarineOperatorYaml getSubmarineOperatorYaml
+                    , Task.attempt GotKogitoOperatorYaml getKogitoOperatorYaml
                     )
 
-        GotSubmarineOperatorYaml result ->
+        GotKogitoOperatorYaml result ->
             case result of
-                Ok loadedSubmarineOperatorYaml ->
-                    ( { openShift | gitHubOperator = GitHubResourceSuccess loadedSubmarineOperatorYaml }
+                Ok loadedKogitoOperatorYaml ->
+                    ( { openShift | gitHubOperator = GitHubResourceSuccess loadedKogitoOperatorYaml }
                     , Cmd.none
                     )
 
@@ -248,11 +248,11 @@ update msg openShift =
                     , Cmd.none
                     )
 
-        DeploySubmarineOperator selectedProject ->
+        DeployKogitoOperator selectedProject ->
             case openShift.gitHubServiceAccount of
-                GitHubResourceSuccess submarineServiceAccount ->
+                GitHubResourceSuccess kogitoServiceAccount ->
                     ( { openShift | operatorDeploymentStatus = OperatorDeploying }
-                    , Task.attempt (SubmarineServiceAccountCreated selectedProject) (createSubmarineServiceAccount openShift.openShiftUrl openShift.authenticationToken selectedProject submarineServiceAccount)
+                    , Task.attempt (KogitoServiceAccountCreated selectedProject) (createKogitoServiceAccount openShift.openShiftUrl openShift.authenticationToken selectedProject kogitoServiceAccount)
                     )
 
                 _ ->
@@ -260,13 +260,13 @@ update msg openShift =
                     , Cmd.none
                     )
 
-        SubmarineServiceAccountCreated selectedProject result ->
+        KogitoServiceAccountCreated selectedProject result ->
             case result of
                 Ok _ ->
                     case openShift.gitHubRole of
-                        GitHubResourceSuccess submarineRole ->
+                        GitHubResourceSuccess kogitoRole ->
                             ( openShift
-                            , Task.attempt (SubmarineRoleCreated selectedProject) (createSubmarineRole openShift.openShiftUrl openShift.authenticationToken selectedProject submarineRole)
+                            , Task.attempt (KogitoRoleCreated selectedProject) (createKogitoRole openShift.openShiftUrl openShift.authenticationToken selectedProject kogitoRole)
                             )
 
                         _ ->
@@ -296,13 +296,13 @@ update msg openShift =
                             , Cmd.none
                             )
 
-        SubmarineRoleCreated selectedProject result ->
+        KogitoRoleCreated selectedProject result ->
             case result of
                 Ok _ ->
                     case openShift.gitHubRoleBinding of
-                        GitHubResourceSuccess submarineRoleBinding ->
+                        GitHubResourceSuccess kogitoRoleBinding ->
                             ( openShift
-                            , Task.attempt (SubmarineRoleBindingCreated selectedProject) (createSubmarineRoleBinding openShift.openShiftUrl openShift.authenticationToken selectedProject submarineRoleBinding)
+                            , Task.attempt (KogitoRoleBindingCreated selectedProject) (createKogitoRoleBinding openShift.openShiftUrl openShift.authenticationToken selectedProject kogitoRoleBinding)
                             )
 
                         _ ->
@@ -332,13 +332,13 @@ update msg openShift =
                             , Cmd.none
                             )
 
-        SubmarineRoleBindingCreated selectedProject result ->
+        KogitoRoleBindingCreated selectedProject result ->
             case result of
                 Ok _ ->
                     case openShift.gitHubOperator of
-                        GitHubResourceSuccess submarineOperator ->
+                        GitHubResourceSuccess kogitoOperator ->
                             ( openShift
-                            , Task.attempt (SubmarineOperatorCreated selectedProject) (createSubmarineDeployment openShift.openShiftUrl openShift.authenticationToken selectedProject submarineOperator)
+                            , Task.attempt (KogitoOperatorCreated selectedProject) (createKogitoDeployment openShift.openShiftUrl openShift.authenticationToken selectedProject kogitoOperator)
                             )
 
                         _ ->
@@ -368,7 +368,7 @@ update msg openShift =
                             , Cmd.none
                             )
 
-        SubmarineOperatorCreated selectedProject result ->
+        KogitoOperatorCreated selectedProject result ->
             case result of
                 Ok _ ->
                     ( { openShift | operatorDeploymentStatus = OperatorDeployed }
@@ -397,12 +397,12 @@ update msg openShift =
                             , Cmd.none
                             )
 
-        DeploySubmarineCustomResource selectedProject ->
+        DeployKogitoCustomResource selectedProject ->
             ( openShift
-            , createSubmarineCustomResource openShift.openShiftUrl openShift.authenticationToken selectedProject (getSubAppAsYaml openShift)
+            , createKogitoCustomResource openShift.openShiftUrl openShift.authenticationToken selectedProject (getSubAppAsYaml openShift)
             )
 
-        SubmarineCustomResourceCreated selectedProject result ->
+        KogitoCustomResourceCreated selectedProject result ->
             --todo: Add custom resource handling
             ( openShift
             , Cmd.none
@@ -429,9 +429,9 @@ view openShift =
             ([ text "OpenShift URL: ", text openShift.openShiftUrl, br [] [] ]
                 ++ viewOpenShiftProjects openShift
                 ++ viewGitHubResourceStatus openShift
-                ++ viewDeploySubmarineOperator openShift
+                ++ viewDeployKogitoOperator openShift
                 ++ [ Html.fieldset []
-                        ([ Html.legend [] [ text "Submarine configuration" ] ]
+                        ([ Html.legend [] [ text "Kogito configuration" ] ]
                             ++ viewRuntime openShift.runtime
                             ++ viewReplicas openShift
                             ++ [ text "Incremental build: "
@@ -449,9 +449,9 @@ view openShift =
                                ]
                         )
                    ]
-                ++ viewDeploySubmarineCustomResource openShift
+                ++ viewDeployKogitoCustomResource openShift
             )
-        , div [ style "width" "40%", style "float" "left" ] [ text "Submarine app custom resource YAML: ", textarea [ cols 80, rows 25, readonly True ] [ text (getSubAppAsYaml openShift) ] ]
+        , div [ style "width" "40%", style "float" "left" ] [ text "Kogito app custom resource YAML: ", textarea [ cols 80, rows 25, readonly True ] [ text (getSubAppAsYaml openShift) ] ]
         ]
 
 
@@ -609,13 +609,13 @@ viewGitHubResourceStatus openShift =
            )
 
 
-viewDeploySubmarineOperator : OpenShift -> List (Html Msg)
-viewDeploySubmarineOperator openShift =
+viewDeployKogitoOperator : OpenShift -> List (Html Msg)
+viewDeployKogitoOperator openShift =
     case openShift.availableOpenShiftProjects of
         OpenShiftProjectsLoaded projects selectedProject ->
             case selectedProject of
                 Just project ->
-                    [ button [ onClick (DeploySubmarineOperator project.name) ] [ text "Deploy Submarine Operator" ]
+                    [ button [ onClick (DeployKogitoOperator project.name) ] [ text "Deploy Kogito Operator" ]
                     , br [] []
                     ]
                         ++ (case openShift.operatorDeploymentStatus of
@@ -623,17 +623,17 @@ viewDeploySubmarineOperator openShift =
                                     []
 
                                 OperatorDeploying ->
-                                    [ text "Submarine Operator is being deployed."
+                                    [ text "Kogito Operator is being deployed."
                                     , br [] []
                                     ]
 
                                 OperatorDeployed ->
-                                    [ text "Submarine Operator deployed."
+                                    [ text "Kogito Operator deployed."
                                     , br [] []
                                     ]
 
                                 OperatorDeploymentError deploymentError ->
-                                    [ text ("Error while deploying Submarine Operator: " ++ deploymentError)
+                                    [ text ("Error while deploying Kogito Operator: " ++ deploymentError)
                                     , br [] []
                                     ]
                            )
@@ -645,13 +645,13 @@ viewDeploySubmarineOperator openShift =
             []
 
 
-viewDeploySubmarineCustomResource : OpenShift -> List (Html Msg)
-viewDeploySubmarineCustomResource openShift =
+viewDeployKogitoCustomResource : OpenShift -> List (Html Msg)
+viewDeployKogitoCustomResource openShift =
     case openShift.availableOpenShiftProjects of
         OpenShiftProjectsLoaded projects selectedProject ->
             case selectedProject of
                 Just project ->
-                    [ button [ onClick (DeploySubmarineCustomResource project.name) ] [ text "Deploy Submarine Custom resource" ]
+                    [ button [ onClick (DeployKogitoCustomResource project.name) ] [ text "Deploy Kogito Custom resource" ]
                     , br [] []
                     ]
 
@@ -684,56 +684,56 @@ openShiftProjectsDecoder =
     field "items" (Json.Decode.list (field "metadata" (field "name" string)))
 
 
-getSubmarineServiceAccountYaml : Task.Task Http.Error String
-getSubmarineServiceAccountYaml =
+getKogitoServiceAccountYaml : Task.Task Http.Error String
+getKogitoServiceAccountYaml =
     Http.task
         { method = "GET"
         , headers = []
-        , url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/service_account.yaml"
+        , url = "https://raw.githubusercontent.com/kiegroup/kogito-cloud-operator/master/deploy/service_account.yaml"
         , body = Http.emptyBody
         , resolver = Http.stringResolver handleResponse
         , timeout = Nothing
         }
 
 
-getSubmarineRoleYaml : Task.Task Http.Error String
-getSubmarineRoleYaml =
+getKogitoRoleYaml : Task.Task Http.Error String
+getKogitoRoleYaml =
     Http.task
         { method = "GET"
         , headers = []
-        , url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/role.yaml"
+        , url = "https://raw.githubusercontent.com/kiegroup/kogito-cloud-operator/master/deploy/role.yaml"
         , body = Http.emptyBody
         , resolver = Http.stringResolver handleResponse
         , timeout = Nothing
         }
 
 
-getSubmarineRoleBindingYaml : Task.Task Http.Error String
-getSubmarineRoleBindingYaml =
+getKogitoRoleBindingYaml : Task.Task Http.Error String
+getKogitoRoleBindingYaml =
     Http.task
         { method = "GET"
         , headers = []
-        , url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/role_binding.yaml"
+        , url = "https://raw.githubusercontent.com/kiegroup/kogito-cloud-operator/master/deploy/role_binding.yaml"
         , body = Http.emptyBody
         , resolver = Http.stringResolver handleResponse
         , timeout = Nothing
         }
 
 
-getSubmarineOperatorYaml : Task.Task Http.Error String
-getSubmarineOperatorYaml =
+getKogitoOperatorYaml : Task.Task Http.Error String
+getKogitoOperatorYaml =
     Http.task
         { method = "GET"
         , headers = []
-        , url = "https://raw.githubusercontent.com/kiegroup/submarine-cloud-operator/master/deploy/operator.yaml"
+        , url = "https://raw.githubusercontent.com/kiegroup/kogito-cloud-operator/master/deploy/operator.yaml"
         , body = Http.emptyBody
         , resolver = Http.stringResolver handleResponse
         , timeout = Nothing
         }
 
 
-createSubmarineServiceAccount : String -> String -> String -> String -> Task.Task Http.Error String
-createSubmarineServiceAccount openShiftUrl authenticationToken namespace yamlContent =
+createKogitoServiceAccount : String -> String -> String -> String -> Task.Task Http.Error String
+createKogitoServiceAccount openShiftUrl authenticationToken namespace yamlContent =
     Http.task
         { method = "POST"
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
@@ -744,8 +744,8 @@ createSubmarineServiceAccount openShiftUrl authenticationToken namespace yamlCon
         }
 
 
-createSubmarineRole : String -> String -> String -> String -> Task.Task Http.Error String
-createSubmarineRole openShiftUrl authenticationToken namespace yamlContent =
+createKogitoRole : String -> String -> String -> String -> Task.Task Http.Error String
+createKogitoRole openShiftUrl authenticationToken namespace yamlContent =
     Http.task
         { method = "POST"
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
@@ -756,8 +756,8 @@ createSubmarineRole openShiftUrl authenticationToken namespace yamlContent =
         }
 
 
-createSubmarineRoleBinding : String -> String -> String -> String -> Task.Task Http.Error String
-createSubmarineRoleBinding openShiftUrl authenticationToken namespace yamlContent =
+createKogitoRoleBinding : String -> String -> String -> String -> Task.Task Http.Error String
+createKogitoRoleBinding openShiftUrl authenticationToken namespace yamlContent =
     Http.task
         { method = "POST"
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
@@ -768,8 +768,8 @@ createSubmarineRoleBinding openShiftUrl authenticationToken namespace yamlConten
         }
 
 
-createSubmarineDeployment : String -> String -> String -> String -> Task.Task Http.Error String
-createSubmarineDeployment openShiftUrl authenticationToken namespace yamlContent =
+createKogitoDeployment : String -> String -> String -> String -> Task.Task Http.Error String
+createKogitoDeployment openShiftUrl authenticationToken namespace yamlContent =
     Http.task
         { method = "POST"
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
@@ -780,14 +780,14 @@ createSubmarineDeployment openShiftUrl authenticationToken namespace yamlContent
         }
 
 
-createSubmarineCustomResource : String -> String -> String -> String -> Cmd Msg
-createSubmarineCustomResource openShiftUrl authenticationToken namespace yamlContent =
+createKogitoCustomResource : String -> String -> String -> String -> Cmd Msg
+createKogitoCustomResource openShiftUrl authenticationToken namespace yamlContent =
     Http.request
         { method = "POST"
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
         , url = openShiftUrl ++ "/apis/app.kiegroup.org/v1alpha1/namespaces/" ++ namespace ++ "/subapps"
         , body = Http.stringBody "application/yaml" yamlContent
-        , expect = Http.expectWhatever (SubmarineCustomResourceCreated namespace)
+        , expect = Http.expectWhatever (KogitoCustomResourceCreated namespace)
         , timeout = Nothing
         , tracker = Nothing
         }
