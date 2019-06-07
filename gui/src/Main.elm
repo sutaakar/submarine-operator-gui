@@ -381,7 +381,7 @@ update msg openShift =
 
         DeployKogitoCustomResource selectedProject ->
             ( openShift
-            , createKogitoCustomResource openShift.openShiftUrl openShift.authenticationToken selectedProject.name (getSubAppAsYaml selectedProject)
+            , createKogitoCustomResource openShift.openShiftUrl openShift.authenticationToken selectedProject.name (getKogitoAppAsYaml selectedProject)
             )
 
         KogitoCustomResourceCreated selectedProject result ->
@@ -443,7 +443,7 @@ view openShift =
                         OpenShiftProjectsLoaded _ (Just project) ->
                             viewSelectedOpenShiftProject project
                                 ++ viewDeployKogitoCustomResource openShift
-                                ++ [ div [ style "width" "40%", style "float" "left" ] [ text "Kogito app custom resource YAML: ", textarea [ cols 80, rows 25, readonly True ] [ text (getSubAppAsYaml project) ] ] ]
+                                ++ [ div [ style "width" "40%", style "float" "left" ] [ text "Kogito app custom resource YAML: ", textarea [ cols 80, rows 25, readonly True ] [ text (getKogitoAppAsYaml project) ] ] ]
 
                         _ ->
                             []
@@ -805,7 +805,7 @@ createKogitoCustomResource openShiftUrl authenticationToken namespace yamlConten
     Http.request
         { method = "POST"
         , headers = [ Http.header "Authorization" ("Bearer " ++ authenticationToken) ]
-        , url = openShiftUrl ++ "/apis/app.kiegroup.org/v1alpha1/namespaces/" ++ namespace ++ "/subapps"
+        , url = openShiftUrl ++ "/apis/app.kiegroup.org/v1alpha1/namespaces/" ++ namespace ++ "/kogitoapps"
         , body = Http.stringBody "application/yaml" yamlContent
         , expect = Http.expectWhatever (KogitoCustomResourceCreated namespace)
         , timeout = Nothing
@@ -836,12 +836,12 @@ handleResponse response =
 -- YAML
 
 
-getSubAppAsYaml : OpenShiftProject -> String
-getSubAppAsYaml project =
+getKogitoAppAsYaml : OpenShiftProject -> String
+getKogitoAppAsYaml project =
     YamlUtils.getNameAndValueWithIntendation "apiVersion" "app.kiegroup.org/v1alpha1" 0
-        ++ YamlUtils.getNameAndValueWithIntendation "kind" "SubApp" 0
+        ++ YamlUtils.getNameAndValueWithIntendation "kind" "KogitoApp" 0
         ++ YamlUtils.getNameWithIntendation "metadata" 0
-        ++ YamlUtils.getNameAndValueWithIntendation "name" "sub-cr" 1
+        ++ YamlUtils.getNameAndValueWithIntendation "name" "kogito-cr" 1
         ++ YamlUtils.getNameWithIntendation "spec" 0
         ++ (case project.runtime of
                 Quarkus ->
