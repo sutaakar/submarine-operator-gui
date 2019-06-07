@@ -1,4 +1,4 @@
-module Main exposing (Msg(..), Submarine, init, main, subscriptions, update, view)
+module Main exposing (Msg(..), OpenShift, init, main, subscriptions, update, view)
 
 import Browser
 import Html exposing (Html, br, button, div, input, option, pre, select, text, textarea)
@@ -14,7 +14,7 @@ import YamlUtils
 -- MAIN
 
 
-main : Program Flag Submarine Msg
+main : Program Flag OpenShift Msg
 main =
     Browser.element
         { init = init
@@ -34,7 +34,7 @@ type alias Flag =
 -- MODEL
 
 
-init : Flag -> ( Submarine, Cmd Msg )
+init : Flag -> ( OpenShift, Cmd Msg )
 init flag =
     ( { openShiftUrl = flag.openShiftUrl
       , authenticationToken = flag.authenticationToken
@@ -55,7 +55,7 @@ init flag =
     )
 
 
-type alias Submarine =
+type alias OpenShift =
     { openShiftUrl : String
     , authenticationToken : String
     , availableOpenShiftProjects : OpenShiftProjects
@@ -130,80 +130,79 @@ type Msg
     | DeploySubmarineCustomResource String
 
 
-update : Msg -> Submarine -> ( Submarine, Cmd Msg )
-update msg submarine =
+update : Msg -> OpenShift -> ( OpenShift, Cmd Msg )
+update msg openShift =
     case msg of
         UpdateGitUrl newGitUrl ->
-            ( { submarine | gitUrl = newGitUrl }
+            ( { openShift | gitUrl = newGitUrl }
             , Cmd.none
             )
 
         UpdateRuntime newRuntime ->
-            ( { submarine | runtime = newRuntime }
+            ( { openShift | runtime = newRuntime }
             , Cmd.none
             )
 
         UpdateReplicas newReplicas ->
             case String.toInt newReplicas of
                 Just newReplicasNumber ->
-                    ( { submarine | replicas = Just newReplicasNumber }
+                    ( { openShift | replicas = Just newReplicasNumber }
                     , Cmd.none
                     )
 
                 Nothing ->
-                    ( { submarine | replicas = Nothing }
+                    ( { openShift | replicas = Nothing }
                     , Cmd.none
                     )
 
         SelectIncremental ->
-            ( { submarine | incremental = not submarine.incremental }
+            ( { openShift | incremental = not openShift.incremental }
             , Cmd.none
             )
 
         UpdateReference newReference ->
-            ( { submarine | reference = newReference }
+            ( { openShift | reference = newReference }
             , Cmd.none
             )
 
         UpdateContextDirectory newContextDir ->
-            ( { submarine | contextDir = newContextDir }
+            ( { openShift | contextDir = newContextDir }
             , Cmd.none
             )
 
         GotOpenShiftProjects result ->
             case result of
                 Ok (firstProject :: otherProjects) ->
-                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) Nothing }
+                    ( { openShift | availableOpenShiftProjects = OpenShiftProjectsLoaded ([ firstProject ] ++ otherProjects) Nothing }
                         |> (\s -> { s | gitHubServiceAccount = GitHubResourceLoading })
-                    , Task.attempt GotSubmarineServiceAccountYaml getSubmarineServiceAccountYaml
                     )
 
                 Ok [] ->
-                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsEmpty }
+                    ( { openShift | availableOpenShiftProjects = OpenShiftProjectsEmpty }
                         |> (\s -> { s | gitHubServiceAccount = GitHubResourceLoading })
                     , Task.attempt GotSubmarineServiceAccountYaml getSubmarineServiceAccountYaml
                     )
 
                 Err error ->
-                    ( { submarine | availableOpenShiftProjects = OpenShiftProjectsError error }
+                    ( { openShift | availableOpenShiftProjects = OpenShiftProjectsError error }
                     , Cmd.none
                     )
 
         ChangeOpenShiftProject projects newOpenShiftProject ->
-            ( { submarine | availableOpenShiftProjects = OpenShiftProjectsLoaded projects (Just { name = newOpenShiftProject }) }
+            ( { openShift | availableOpenShiftProjects = OpenShiftProjectsLoaded projects (Just { name = newOpenShiftProject }) }
             , Cmd.none
             )
 
         GotSubmarineServiceAccountYaml result ->
             case result of
                 Ok loadedSubmarineServiceAccountYaml ->
-                    ( { submarine | gitHubServiceAccount = GitHubResourceSuccess loadedSubmarineServiceAccountYaml }
+                    ( { openShift | gitHubServiceAccount = GitHubResourceSuccess loadedSubmarineServiceAccountYaml }
                         |> (\s -> { s | gitHubRole = GitHubResourceLoading })
                     , Task.attempt GotSubmarineRoleYaml getSubmarineRoleYaml
                     )
 
                 Err error ->
-                    ( { submarine | gitHubServiceAccount = GitHubResourceError }
+                    ( { openShift | gitHubServiceAccount = GitHubResourceError }
                         |> (\s -> { s | gitHubRole = GitHubResourceLoading })
                     , Task.attempt GotSubmarineRoleYaml getSubmarineRoleYaml
                     )
@@ -211,13 +210,13 @@ update msg submarine =
         GotSubmarineRoleYaml result ->
             case result of
                 Ok loadedSubmarineRoleYaml ->
-                    ( { submarine | gitHubRole = GitHubResourceSuccess loadedSubmarineRoleYaml }
+                    ( { openShift | gitHubRole = GitHubResourceSuccess loadedSubmarineRoleYaml }
                         |> (\s -> { s | gitHubRoleBinding = GitHubResourceLoading })
                     , Task.attempt GotSubmarineRoleBindingYaml getSubmarineRoleBindingYaml
                     )
 
                 Err error ->
-                    ( { submarine | gitHubRole = GitHubResourceError }
+                    ( { openShift | gitHubRole = GitHubResourceError }
                         |> (\s -> { s | gitHubRoleBinding = GitHubResourceLoading })
                     , Task.attempt GotSubmarineRoleBindingYaml getSubmarineRoleBindingYaml
                     )
@@ -225,13 +224,13 @@ update msg submarine =
         GotSubmarineRoleBindingYaml result ->
             case result of
                 Ok loadedSubmarineRoleBindingYaml ->
-                    ( { submarine | gitHubRoleBinding = GitHubResourceSuccess loadedSubmarineRoleBindingYaml }
+                    ( { openShift | gitHubRoleBinding = GitHubResourceSuccess loadedSubmarineRoleBindingYaml }
                         |> (\s -> { s | gitHubOperator = GitHubResourceLoading })
                     , Task.attempt GotSubmarineOperatorYaml getSubmarineOperatorYaml
                     )
 
                 Err error ->
-                    ( { submarine | gitHubRoleBinding = GitHubResourceError }
+                    ( { openShift | gitHubRoleBinding = GitHubResourceError }
                         |> (\s -> { s | gitHubOperator = GitHubResourceLoading })
                     , Task.attempt GotSubmarineOperatorYaml getSubmarineOperatorYaml
                     )
@@ -239,172 +238,172 @@ update msg submarine =
         GotSubmarineOperatorYaml result ->
             case result of
                 Ok loadedSubmarineOperatorYaml ->
-                    ( { submarine | gitHubOperator = GitHubResourceSuccess loadedSubmarineOperatorYaml }
+                    ( { openShift | gitHubOperator = GitHubResourceSuccess loadedSubmarineOperatorYaml }
                     , Cmd.none
                     )
 
                 Err error ->
-                    ( { submarine | gitHubOperator = GitHubResourceError }
+                    ( { openShift | gitHubOperator = GitHubResourceError }
                     , Cmd.none
                     )
 
         DeploySubmarineOperator selectedProject ->
-            case submarine.gitHubServiceAccount of
+            case openShift.gitHubServiceAccount of
                 GitHubResourceSuccess submarineServiceAccount ->
-                    ( { submarine | operatorDeploymentStatus = OperatorDeploying }
-                    , Task.attempt (SubmarineServiceAccountCreated selectedProject) (createSubmarineServiceAccount submarine.openShiftUrl submarine.authenticationToken selectedProject submarineServiceAccount)
+                    ( { openShift | operatorDeploymentStatus = OperatorDeploying }
+                    , Task.attempt (SubmarineServiceAccountCreated selectedProject) (createSubmarineServiceAccount openShift.openShiftUrl openShift.authenticationToken selectedProject submarineServiceAccount)
                     )
 
                 _ ->
-                    ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Service account from GitHub not loaded." }
+                    ( { openShift | operatorDeploymentStatus = OperatorDeploymentError "Service account from GitHub not loaded." }
                     , Cmd.none
                     )
 
         SubmarineServiceAccountCreated selectedProject result ->
             case result of
                 Ok _ ->
-                    case submarine.gitHubRole of
+                    case openShift.gitHubRole of
                         GitHubResourceSuccess submarineRole ->
-                            ( submarine
-                            , Task.attempt (SubmarineRoleCreated selectedProject) (createSubmarineRole submarine.openShiftUrl submarine.authenticationToken selectedProject submarineRole)
+                            ( openShift
+                            , Task.attempt (SubmarineRoleCreated selectedProject) (createSubmarineRole openShift.openShiftUrl openShift.authenticationToken selectedProject submarineRole)
                             )
 
                         _ ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Role from GitHub not loaded." }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError "Role from GitHub not loaded." }
                             , Cmd.none
                             )
 
                 Err error ->
                     case error of
                         Http.BadUrl url ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("No valid URL for service account creation: " ++ url) }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError ("No valid URL for service account creation: " ++ url) }
                             , Cmd.none
                             )
 
                         Http.NetworkError ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Network error while creating service account." }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError "Network error while creating service account." }
                             , Cmd.none
                             )
 
                         Http.BadStatus statusCode ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("Bad status code while creating service account: " ++ String.fromInt statusCode) }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError ("Bad status code while creating service account: " ++ String.fromInt statusCode) }
                             , Cmd.none
                             )
 
                         _ ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Error while creating service account." }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError "Error while creating service account." }
                             , Cmd.none
                             )
 
         SubmarineRoleCreated selectedProject result ->
             case result of
                 Ok _ ->
-                    case submarine.gitHubRoleBinding of
+                    case openShift.gitHubRoleBinding of
                         GitHubResourceSuccess submarineRoleBinding ->
-                            ( submarine
-                            , Task.attempt (SubmarineRoleBindingCreated selectedProject) (createSubmarineRoleBinding submarine.openShiftUrl submarine.authenticationToken selectedProject submarineRoleBinding)
+                            ( openShift
+                            , Task.attempt (SubmarineRoleBindingCreated selectedProject) (createSubmarineRoleBinding openShift.openShiftUrl openShift.authenticationToken selectedProject submarineRoleBinding)
                             )
 
                         _ ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Role binding from GitHub not loaded." }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError "Role binding from GitHub not loaded." }
                             , Cmd.none
                             )
 
                 Err error ->
                     case error of
                         Http.BadUrl url ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("No valid URL for role creation: " ++ url) }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError ("No valid URL for role creation: " ++ url) }
                             , Cmd.none
                             )
 
                         Http.NetworkError ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Network error while creating role." }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError "Network error while creating role." }
                             , Cmd.none
                             )
 
                         Http.BadStatus statusCode ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("Bad status code while creating role: " ++ String.fromInt statusCode) }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError ("Bad status code while creating role: " ++ String.fromInt statusCode) }
                             , Cmd.none
                             )
 
                         _ ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Error while creating role." }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError "Error while creating role." }
                             , Cmd.none
                             )
 
         SubmarineRoleBindingCreated selectedProject result ->
             case result of
                 Ok _ ->
-                    case submarine.gitHubOperator of
+                    case openShift.gitHubOperator of
                         GitHubResourceSuccess submarineOperator ->
-                            ( submarine
-                            , Task.attempt (SubmarineOperatorCreated selectedProject) (createSubmarineDeployment submarine.openShiftUrl submarine.authenticationToken selectedProject submarineOperator)
+                            ( openShift
+                            , Task.attempt (SubmarineOperatorCreated selectedProject) (createSubmarineDeployment openShift.openShiftUrl openShift.authenticationToken selectedProject submarineOperator)
                             )
 
                         _ ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Role binding from GitHub not loaded." }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError "Role binding from GitHub not loaded." }
                             , Cmd.none
                             )
 
                 Err error ->
                     case error of
                         Http.BadUrl url ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("No valid URL for role binding creation: " ++ url) }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError ("No valid URL for role binding creation: " ++ url) }
                             , Cmd.none
                             )
 
                         Http.NetworkError ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Network error while creating role binding." }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError "Network error while creating role binding." }
                             , Cmd.none
                             )
 
                         Http.BadStatus statusCode ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("Bad status code while creating role binding: " ++ String.fromInt statusCode) }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError ("Bad status code while creating role binding: " ++ String.fromInt statusCode) }
                             , Cmd.none
                             )
 
                         _ ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Error while creating role binding." }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError "Error while creating role binding." }
                             , Cmd.none
                             )
 
         SubmarineOperatorCreated selectedProject result ->
             case result of
                 Ok _ ->
-                    ( { submarine | operatorDeploymentStatus = OperatorDeployed }
+                    ( { openShift | operatorDeploymentStatus = OperatorDeployed }
                     , Cmd.none
                     )
 
                 Err error ->
                     case error of
                         Http.BadUrl url ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("No valid URL for operator creation: " ++ url) }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError ("No valid URL for operator creation: " ++ url) }
                             , Cmd.none
                             )
 
                         Http.NetworkError ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Network error while creating operator." }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError "Network error while creating operator." }
                             , Cmd.none
                             )
 
                         Http.BadStatus statusCode ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError ("Bad status code while creating operator: " ++ String.fromInt statusCode) }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError ("Bad status code while creating operator: " ++ String.fromInt statusCode) }
                             , Cmd.none
                             )
 
                         _ ->
-                            ( { submarine | operatorDeploymentStatus = OperatorDeploymentError "Error while creating operator." }
+                            ( { openShift | operatorDeploymentStatus = OperatorDeploymentError "Error while creating operator." }
                             , Cmd.none
                             )
 
         DeploySubmarineCustomResource selectedProject ->
-            ( submarine
-            , createSubmarineCustomResource submarine.openShiftUrl submarine.authenticationToken selectedProject (getSubAppAsYaml submarine)
+            ( openShift
+            , createSubmarineCustomResource openShift.openShiftUrl openShift.authenticationToken selectedProject (getSubAppAsYaml openShift)
             )
 
         SubmarineCustomResourceCreated selectedProject result ->
             --todo: Add custom resource handling
-            ( submarine
+            ( openShift
             , Cmd.none
             )
 
@@ -413,8 +412,8 @@ update msg submarine =
 -- SUBSCRIPTIONS
 
 
-subscriptions : Submarine -> Sub Msg
-subscriptions submarine =
+subscriptions : OpenShift -> Sub Msg
+subscriptions openShift =
     Sub.none
 
 
@@ -422,42 +421,42 @@ subscriptions submarine =
 -- VIEW
 
 
-view : Submarine -> Html Msg
-view submarine =
+view : OpenShift -> Html Msg
+view openShift =
     div []
         [ div [ style "width" "60%", style "float" "left" ]
-            ([ text "OpenShift URL: ", text submarine.openShiftUrl, br [] [] ]
-                ++ viewOpenShiftProjects submarine
-                ++ viewGitHubResourceStatus submarine
-                ++ viewDeploySubmarineOperator submarine
+            ([ text "OpenShift URL: ", text openShift.openShiftUrl, br [] [] ]
+                ++ viewOpenShiftProjects openShift
+                ++ viewGitHubResourceStatus openShift
+                ++ viewDeploySubmarineOperator openShift
                 ++ [ Html.fieldset []
                         ([ Html.legend [] [ text "Submarine configuration" ] ]
-                            ++ viewRuntime submarine.runtime
-                            ++ viewReplicas submarine
+                            ++ viewRuntime openShift.runtime
+                            ++ viewReplicas openShift
                             ++ [ text "Incremental build: "
-                               , input [ type_ "checkbox", checked submarine.incremental, onClick SelectIncremental ] []
+                               , input [ type_ "checkbox", checked openShift.incremental, onClick SelectIncremental ] []
                                , br [] []
                                , text "Git URL: "
-                               , input [ placeholder "Git URL", value submarine.gitUrl, onInput UpdateGitUrl ] []
+                               , input [ placeholder "Git URL", value openShift.gitUrl, onInput UpdateGitUrl ] []
                                , br [] []
                                , text "Reference: "
-                               , input [ placeholder "Reference", value submarine.reference, onInput UpdateReference ] []
+                               , input [ placeholder "Reference", value openShift.reference, onInput UpdateReference ] []
                                , br [] []
                                , text "Context directory: "
-                               , input [ placeholder "Context directory", value submarine.contextDir, onInput UpdateContextDirectory ] []
+                               , input [ placeholder "Context directory", value openShift.contextDir, onInput UpdateContextDirectory ] []
                                , br [] []
                                ]
                         )
                    ]
-                ++ viewDeploySubmarineCustomResource submarine
+                ++ viewDeploySubmarineCustomResource openShift
             )
-        , div [ style "width" "40%", style "float" "left" ] [ text "Submarine app custom resource YAML: ", textarea [ cols 80, rows 25, readonly True ] [ text (getSubAppAsYaml submarine) ] ]
+        , div [ style "width" "40%", style "float" "left" ] [ text "Submarine app custom resource YAML: ", textarea [ cols 80, rows 25, readonly True ] [ text (getSubAppAsYaml openShift) ] ]
         ]
 
 
-viewReplicas : Submarine -> List (Html Msg)
-viewReplicas submarine =
-    case submarine.replicas of
+viewReplicas : OpenShift -> List (Html Msg)
+viewReplicas openShift =
+    case openShift.replicas of
         Just replicas ->
             [ text "Replicas: "
             , input [ placeholder "Replicas", value (String.fromInt replicas), onInput UpdateReplicas ] []
@@ -498,9 +497,9 @@ viewRuntime runtime =
     ]
 
 
-viewOpenShiftProjects : Submarine -> List (Html Msg)
-viewOpenShiftProjects submarine =
-    case submarine.availableOpenShiftProjects of
+viewOpenShiftProjects : OpenShift -> List (Html Msg)
+viewOpenShiftProjects openShift =
+    case openShift.availableOpenShiftProjects of
         OpenShiftProjectsLoading ->
             [ text "Loading OpenShift projects..."
             , br [] []
@@ -553,9 +552,9 @@ viewOpenShiftProjects submarine =
                     ]
 
 
-viewGitHubResourceStatus : Submarine -> List (Html Msg)
-viewGitHubResourceStatus submarine =
-    (case submarine.gitHubServiceAccount of
+viewGitHubResourceStatus : OpenShift -> List (Html Msg)
+viewGitHubResourceStatus openShift =
+    (case openShift.gitHubServiceAccount of
         GitHubResourceLoading ->
             [ text "Loading Service account YAML.", br [] [] ]
 
@@ -568,7 +567,7 @@ viewGitHubResourceStatus submarine =
         GitHubResourceNotLoaded ->
             []
     )
-        ++ (case submarine.gitHubRole of
+        ++ (case openShift.gitHubRole of
                 GitHubResourceLoading ->
                     [ text "Loading Role YAML.", br [] [] ]
 
@@ -581,7 +580,7 @@ viewGitHubResourceStatus submarine =
                 GitHubResourceNotLoaded ->
                     []
            )
-        ++ (case submarine.gitHubRoleBinding of
+        ++ (case openShift.gitHubRoleBinding of
                 GitHubResourceLoading ->
                     [ text "Loading Role binding YAML.", br [] [] ]
 
@@ -594,7 +593,7 @@ viewGitHubResourceStatus submarine =
                 GitHubResourceNotLoaded ->
                     []
            )
-        ++ (case submarine.gitHubOperator of
+        ++ (case openShift.gitHubOperator of
                 GitHubResourceLoading ->
                     [ text "Loading Operator YAML.", br [] [] ]
 
@@ -609,16 +608,16 @@ viewGitHubResourceStatus submarine =
            )
 
 
-viewDeploySubmarineOperator : Submarine -> List (Html Msg)
-viewDeploySubmarineOperator submarine =
-    case submarine.availableOpenShiftProjects of
+viewDeploySubmarineOperator : OpenShift -> List (Html Msg)
+viewDeploySubmarineOperator openShift =
+    case openShift.availableOpenShiftProjects of
         OpenShiftProjectsLoaded projects selectedProject ->
             case selectedProject of
                 Just project ->
                     [ button [ onClick (DeploySubmarineOperator project.name) ] [ text "Deploy Submarine Operator" ]
                     , br [] []
                     ]
-                        ++ (case submarine.operatorDeploymentStatus of
+                        ++ (case openShift.operatorDeploymentStatus of
                                 OperatorNotDeployed ->
                                     []
 
@@ -645,9 +644,9 @@ viewDeploySubmarineOperator submarine =
             []
 
 
-viewDeploySubmarineCustomResource : Submarine -> List (Html Msg)
-viewDeploySubmarineCustomResource submarine =
-    case submarine.availableOpenShiftProjects of
+viewDeploySubmarineCustomResource : OpenShift -> List (Html Msg)
+viewDeploySubmarineCustomResource openShift =
+    case openShift.availableOpenShiftProjects of
         OpenShiftProjectsLoaded projects selectedProject ->
             case selectedProject of
                 Just project ->
@@ -816,21 +815,21 @@ handleResponse response =
 -- YAML
 
 
-getSubAppAsYaml : Submarine -> String
-getSubAppAsYaml submarine =
+getSubAppAsYaml : OpenShift -> String
+getSubAppAsYaml openShift =
     YamlUtils.getNameAndValueWithIntendation "apiVersion" "app.kiegroup.org/v1alpha1" 0
         ++ YamlUtils.getNameAndValueWithIntendation "kind" "SubApp" 0
         ++ YamlUtils.getNameWithIntendation "metadata" 0
         ++ YamlUtils.getNameAndValueWithIntendation "name" "sub-cr" 1
         ++ YamlUtils.getNameWithIntendation "spec" 0
-        ++ (case submarine.runtime of
+        ++ (case openShift.runtime of
                 Quarkus ->
                     YamlUtils.getNameAndValueWithIntendation "runtime" "quarkus" 1
 
                 SpringBoot ->
                     YamlUtils.getNameAndValueWithIntendation "runtime" "springboot" 1
            )
-        ++ (case submarine.replicas of
+        ++ (case openShift.replicas of
                 Just replicas ->
                     YamlUtils.getNameAndValueWithIntendation "replicas" (String.fromInt replicas) 1
 
@@ -838,22 +837,22 @@ getSubAppAsYaml submarine =
                     ""
            )
         ++ YamlUtils.getNameWithIntendation "build" 1
-        ++ (if submarine.incremental then
+        ++ (if openShift.incremental then
                 YamlUtils.getNameAndValueWithIntendation "incremental" "true" 2
 
             else
                 YamlUtils.getNameAndValueWithIntendation "incremental" "false" 2
            )
         ++ YamlUtils.getNameWithIntendation "gitSource" 2
-        ++ YamlUtils.getNameAndValueWithIntendation "uri" submarine.gitUrl 3
-        ++ (if String.length submarine.reference > 0 then
-                YamlUtils.getNameAndValueWithIntendation "reference" submarine.reference 3
+        ++ YamlUtils.getNameAndValueWithIntendation "uri" openShift.gitUrl 3
+        ++ (if String.length openShift.reference > 0 then
+                YamlUtils.getNameAndValueWithIntendation "reference" openShift.reference 3
 
             else
                 ""
            )
-        ++ (if String.length submarine.contextDir > 0 then
-                YamlUtils.getNameAndValueWithIntendation "contextDir" submarine.contextDir 3
+        ++ (if String.length openShift.contextDir > 0 then
+                YamlUtils.getNameAndValueWithIntendation "contextDir" openShift.contextDir 3
 
             else
                 ""
