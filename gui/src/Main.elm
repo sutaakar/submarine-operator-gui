@@ -44,12 +44,6 @@ init flag =
       , gitHubRoleBinding = GitHubResourceNotLoaded
       , gitHubOperator = GitHubResourceNotLoaded
       , operatorDeploymentStatus = OperatorNotDeployed
-      , runtime = Quarkus
-      , replicas = Nothing
-      , incremental = True
-      , gitUrl = ""
-      , reference = ""
-      , contextDir = ""
       }
     , getOpenShiftProjects flag.openShiftUrl flag.authenticationToken
     )
@@ -64,17 +58,17 @@ type alias OpenShift =
     , gitHubRoleBinding : GitHubResource
     , gitHubOperator : GitHubResource
     , operatorDeploymentStatus : OperatorDeploymentStatus
+    }
+
+
+type alias OpenShiftProject =
+    { name : String
     , runtime : Runtime
     , replicas : Maybe Int
     , incremental : Bool
     , gitUrl : String
     , reference : String
     , contextDir : String
-    }
-
-
-type alias OpenShiftProject =
-    { name : String
     }
 
 
@@ -109,12 +103,7 @@ type OperatorDeploymentStatus
 
 
 type Msg
-    = UpdateGitUrl String
-    | UpdateRuntime Runtime
-    | UpdateReplicas String
-    | SelectIncremental
-    | UpdateReference String
-    | UpdateContextDirectory String
+    = ProjectMsg ProjectMsg
     | GotOpenShiftProjects (Result Http.Error (List String))
     | ChangeOpenShiftProject (List String) String
     | GotKogitoServiceAccountYaml (Result Http.Error String)
@@ -127,48 +116,28 @@ type Msg
     | KogitoOperatorCreated String (Result Http.Error String)
     | KogitoCustomResourceCreated String (Result Http.Error ())
     | DeployKogitoOperator String
-    | DeployKogitoCustomResource String
+    | DeployKogitoCustomResource OpenShiftProject
+
+
+type ProjectMsg
+    = UpdateGitUrl String
+    | UpdateRuntime Runtime
+    | UpdateReplicas String
+    | SelectIncremental
+    | UpdateReference String
+    | UpdateContextDirectory String
 
 
 update : Msg -> OpenShift -> ( OpenShift, Cmd Msg )
 update msg openShift =
     case msg of
-        UpdateGitUrl newGitUrl ->
-            ( { openShift | gitUrl = newGitUrl }
-            , Cmd.none
-            )
+        ProjectMsg projectMsg ->
+            case openShift.availableOpenShiftProjects of
+                OpenShiftProjectsLoaded projects (Just project) ->
+                    ( { openShift | availableOpenShiftProjects = OpenShiftProjectsLoaded projects (Just (updateProject projectMsg project)) }, Cmd.none )
 
-        UpdateRuntime newRuntime ->
-            ( { openShift | runtime = newRuntime }
-            , Cmd.none
-            )
-
-        UpdateReplicas newReplicas ->
-            case String.toInt newReplicas of
-                Just newReplicasNumber ->
-                    ( { openShift | replicas = Just newReplicasNumber }
-                    , Cmd.none
-                    )
-
-                Nothing ->
-                    ( { openShift | replicas = Nothing }
-                    , Cmd.none
-                    )
-
-        SelectIncremental ->
-            ( { openShift | incremental = not openShift.incremental }
-            , Cmd.none
-            )
-
-        UpdateReference newReference ->
-            ( { openShift | reference = newReference }
-            , Cmd.none
-            )
-
-        UpdateContextDirectory newContextDir ->
-            ( { openShift | contextDir = newContextDir }
-            , Cmd.none
-            )
+                _ ->
+                    ( openShift, Cmd.none )
 
         GotOpenShiftProjects result ->
             case result of
@@ -190,7 +159,20 @@ update msg openShift =
                     )
 
         ChangeOpenShiftProject projects newOpenShiftProject ->
-            ( { openShift | availableOpenShiftProjects = OpenShiftProjectsLoaded projects (Just { name = newOpenShiftProject }) }
+            ( { openShift
+                | availableOpenShiftProjects =
+                    OpenShiftProjectsLoaded projects
+                        (Just
+                            { name = newOpenShiftProject
+                            , runtime = Quarkus
+                            , replicas = Nothing
+                            , incremental = True
+                            , gitUrl = ""
+                            , reference = ""
+                            , contextDir = ""
+                            }
+                        )
+              }
             , Cmd.none
             )
 
@@ -399,7 +381,7 @@ update msg openShift =
 
         DeployKogitoCustomResource selectedProject ->
             ( openShift
-            , createKogitoCustomResource openShift.openShiftUrl openShift.authenticationToken selectedProject (getSubAppAsYaml openShift)
+            , createKogitoCustomResource openShift.openShiftUrl openShift.authenticationToken selectedProject.name (getSubAppAsYaml selectedProject)
             )
 
         KogitoCustomResourceCreated selectedProject result ->
@@ -407,6 +389,33 @@ update msg openShift =
             ( openShift
             , Cmd.none
             )
+
+
+updateProject : ProjectMsg -> OpenShiftProject -> OpenShiftProject
+updateProject projectMsg project =
+    case projectMsg of
+        UpdateGitUrl newGitUrl ->
+            { project | gitUrl = newGitUrl }
+
+        UpdateRuntime newRuntime ->
+            { project | runtime = newRuntime }
+
+        UpdateReplicas newReplicas ->
+            case String.toInt newReplicas of
+                Just newReplicasNumber ->
+                    { project | replicas = Just newReplicasNumber }
+
+                Nothing ->
+                    { project | replicas = Nothing }
+
+        SelectIncremental ->
+            { project | incremental = not project.incremental }
+
+        UpdateReference newReference ->
+            { project | reference = newReference }
+
+        UpdateContextDirectory newContextDir ->
+            { project | contextDir = newContextDir }
 
 
 
@@ -430,43 +439,54 @@ view openShift =
                 ++ viewOpenShiftProjects openShift
                 ++ viewGitHubResourceStatus openShift
                 ++ viewDeployKogitoOperator openShift
-                ++ [ Html.fieldset []
-                        ([ Html.legend [] [ text "Kogito configuration" ] ]
-                            ++ viewRuntime openShift.runtime
-                            ++ viewReplicas openShift
-                            ++ [ text "Incremental build: "
-                               , input [ type_ "checkbox", checked openShift.incremental, onClick SelectIncremental ] []
-                               , br [] []
-                               , text "Git URL: "
-                               , input [ placeholder "Git URL", value openShift.gitUrl, onInput UpdateGitUrl ] []
-                               , br [] []
-                               , text "Reference: "
-                               , input [ placeholder "Reference", value openShift.reference, onInput UpdateReference ] []
-                               , br [] []
-                               , text "Context directory: "
-                               , input [ placeholder "Context directory", value openShift.contextDir, onInput UpdateContextDirectory ] []
-                               , br [] []
-                               ]
-                        )
-                   ]
-                ++ viewDeployKogitoCustomResource openShift
+                ++ (case openShift.availableOpenShiftProjects of
+                        OpenShiftProjectsLoaded _ (Just project) ->
+                            viewSelectedOpenShiftProject project
+                                ++ viewDeployKogitoCustomResource openShift
+                                ++ [ div [ style "width" "40%", style "float" "left" ] [ text "Kogito app custom resource YAML: ", textarea [ cols 80, rows 25, readonly True ] [ text (getSubAppAsYaml project) ] ] ]
+
+                        _ ->
+                            []
+                   )
             )
-        , div [ style "width" "40%", style "float" "left" ] [ text "Kogito app custom resource YAML: ", textarea [ cols 80, rows 25, readonly True ] [ text (getSubAppAsYaml openShift) ] ]
         ]
 
 
-viewReplicas : OpenShift -> List (Html Msg)
-viewReplicas openShift =
-    case openShift.replicas of
+viewSelectedOpenShiftProject : OpenShiftProject -> List (Html Msg)
+viewSelectedOpenShiftProject project =
+    [ Html.fieldset []
+        ([ Html.legend [] [ text "Kogito configuration" ] ]
+            ++ viewRuntime project.runtime
+            ++ viewReplicas project
+            ++ [ text "Incremental build: "
+               , input [ type_ "checkbox", checked project.incremental, onClick (ProjectMsg <| SelectIncremental) ] []
+               , br [] []
+               , text "Git URL: "
+               , input [ placeholder "Git URL", value project.gitUrl, onInput (ProjectMsg << UpdateGitUrl) ] []
+               , br [] []
+               , text "Reference: "
+               , input [ placeholder "Reference", value project.reference, onInput (ProjectMsg << UpdateReference) ] []
+               , br [] []
+               , text "Context directory: "
+               , input [ placeholder "Context directory", value project.contextDir, onInput (ProjectMsg << UpdateContextDirectory) ] []
+               , br [] []
+               ]
+        )
+    ]
+
+
+viewReplicas : OpenShiftProject -> List (Html Msg)
+viewReplicas project =
+    case project.replicas of
         Just replicas ->
             [ text "Replicas: "
-            , input [ placeholder "Replicas", value (String.fromInt replicas), onInput UpdateReplicas ] []
+            , input [ placeholder "Replicas", value (String.fromInt replicas), onInput (ProjectMsg << UpdateReplicas) ] []
             , br [] []
             ]
 
         Nothing ->
             [ text "Replicas: "
-            , input [ placeholder "Replicas", value "", onInput UpdateReplicas ] []
+            , input [ placeholder "Replicas", value "", onInput (ProjectMsg << UpdateReplicas) ] []
             , br [] []
             ]
 
@@ -490,9 +510,9 @@ viewRuntime runtime =
                 SpringBoot ->
                     True
     in
-    [ input [ type_ "radio", name "runtime", checked isQuarkusSelected, onClick (UpdateRuntime Quarkus) ] []
+    [ input [ type_ "radio", name "runtime", checked isQuarkusSelected, onClick (ProjectMsg <| UpdateRuntime Quarkus) ] []
     , text "Quarkus"
-    , input [ type_ "radio", name "runtime", checked isSpringBootSelected, onClick (UpdateRuntime SpringBoot) ] []
+    , input [ type_ "radio", name "runtime", checked isSpringBootSelected, onClick (ProjectMsg <| UpdateRuntime SpringBoot) ] []
     , text "SpringBoot"
     , br [] []
     ]
@@ -651,7 +671,7 @@ viewDeployKogitoCustomResource openShift =
         OpenShiftProjectsLoaded projects selectedProject ->
             case selectedProject of
                 Just project ->
-                    [ button [ onClick (DeployKogitoCustomResource project.name) ] [ text "Deploy Kogito Custom resource" ]
+                    [ button [ onClick (DeployKogitoCustomResource project) ] [ text "Deploy Kogito Custom resource" ]
                     , br [] []
                     ]
 
@@ -816,21 +836,21 @@ handleResponse response =
 -- YAML
 
 
-getSubAppAsYaml : OpenShift -> String
-getSubAppAsYaml openShift =
+getSubAppAsYaml : OpenShiftProject -> String
+getSubAppAsYaml project =
     YamlUtils.getNameAndValueWithIntendation "apiVersion" "app.kiegroup.org/v1alpha1" 0
         ++ YamlUtils.getNameAndValueWithIntendation "kind" "SubApp" 0
         ++ YamlUtils.getNameWithIntendation "metadata" 0
         ++ YamlUtils.getNameAndValueWithIntendation "name" "sub-cr" 1
         ++ YamlUtils.getNameWithIntendation "spec" 0
-        ++ (case openShift.runtime of
+        ++ (case project.runtime of
                 Quarkus ->
                     YamlUtils.getNameAndValueWithIntendation "runtime" "quarkus" 1
 
                 SpringBoot ->
                     YamlUtils.getNameAndValueWithIntendation "runtime" "springboot" 1
            )
-        ++ (case openShift.replicas of
+        ++ (case project.replicas of
                 Just replicas ->
                     YamlUtils.getNameAndValueWithIntendation "replicas" (String.fromInt replicas) 1
 
@@ -838,22 +858,22 @@ getSubAppAsYaml openShift =
                     ""
            )
         ++ YamlUtils.getNameWithIntendation "build" 1
-        ++ (if openShift.incremental then
+        ++ (if project.incremental then
                 YamlUtils.getNameAndValueWithIntendation "incremental" "true" 2
 
             else
                 YamlUtils.getNameAndValueWithIntendation "incremental" "false" 2
            )
         ++ YamlUtils.getNameWithIntendation "gitSource" 2
-        ++ YamlUtils.getNameAndValueWithIntendation "uri" openShift.gitUrl 3
-        ++ (if String.length openShift.reference > 0 then
-                YamlUtils.getNameAndValueWithIntendation "reference" openShift.reference 3
+        ++ YamlUtils.getNameAndValueWithIntendation "uri" project.gitUrl 3
+        ++ (if String.length project.reference > 0 then
+                YamlUtils.getNameAndValueWithIntendation "reference" project.reference 3
 
             else
                 ""
            )
-        ++ (if String.length openShift.contextDir > 0 then
-                YamlUtils.getNameAndValueWithIntendation "contextDir" openShift.contextDir 3
+        ++ (if String.length project.contextDir > 0 then
+                YamlUtils.getNameAndValueWithIntendation "contextDir" project.contextDir 3
 
             else
                 ""
