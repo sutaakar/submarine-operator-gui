@@ -434,7 +434,7 @@ subscriptions openShift =
 view : OpenShift -> Html Msg
 view openShift =
     div []
-        [ div [ style "width" "60%", style "float" "left" ]
+        ([ div [ style "width" "60%", style "float" "left" ]
             ([ text "OpenShift URL: ", text openShift.openShiftUrl, br [] [] ]
                 ++ viewOpenShiftProjects openShift
                 ++ viewGitHubResourceStatus openShift
@@ -443,13 +443,20 @@ view openShift =
                         OpenShiftProjectsLoaded _ (Just project) ->
                             viewSelectedOpenShiftProject project
                                 ++ viewDeployKogitoCustomResource openShift
-                                ++ [ div [ style "width" "40%", style "float" "left" ] [ text "Kogito app custom resource YAML: ", textarea [ cols 80, rows 25, readonly True ] [ text (getKogitoAppAsYaml project) ] ] ]
 
                         _ ->
                             []
                    )
             )
-        ]
+         ]
+            ++ (case openShift.availableOpenShiftProjects of
+                    OpenShiftProjectsLoaded _ (Just project) ->
+                        [ div [ style "width" "40%", style "float" "left" ] [ text "Kogito app custom resource YAML: ", textarea [ cols 80, rows 25, readonly True ] [ text (getKogitoAppAsYaml project) ] ] ]
+
+                    _ ->
+                        []
+               )
+        )
 
 
 viewSelectedOpenShiftProject : OpenShiftProject -> List (Html Msg)
